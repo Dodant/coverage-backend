@@ -1,0 +1,236 @@
+package com.bookcover.archive.domain.book;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * 북커버 엔티티.
+ * 책의 앞면 또는 뒷면 커버 이미지 정보를 저장합니다.
+ *
+ * Requirements:
+ * - 1.4: 뒷면 북커버가 제공되는 경우 해당 이미지를 선택적으로 저장
+ * - 14.8: 썸네일과 원본 이미지를 별도로 저장하여 로딩 성능 최적화
+ */
+@Entity
+@Table(name = "book_covers")
+public class BookCover {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    /** 원본 이미지 URL */
+    @Column(nullable = false)
+    private String imageUrl;
+
+    /** 썸네일 이미지 URL */
+    @Column(nullable = false)
+    private String thumbnailUrl;
+
+    /** 원본 파일명 */
+    @Column(nullable = false)
+    private String originalFileName;
+
+    /** 이미지 너비 (픽셀) */
+    private Integer width;
+
+    /** 이미지 높이 (픽셀) */
+    private Integer height;
+
+    /** 파일 크기 (바이트) */
+    private Long fileSize;
+
+    /** 커버 유형 (앞면/뒷면) */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CoverType coverType;
+
+    /** 이미지 출처 */
+    @Enumerated(EnumType.STRING)
+    private ImageSource imageSource;
+
+    /** 출처 URL (링크에서 가져온 경우) */
+    private String sourceUrl;
+
+    /** 대표 색상 (HEX 코드) */
+    @Column(length = 7)
+    private String dominantColor;
+
+    /** 레이아웃 유형 */
+    @Enumerated(EnumType.STRING)
+    private CoverLayout layout;
+
+    /** 좋아요 수 */
+    @Column(nullable = false)
+    private Integer likeCount = 0;
+
+    /** 댓글 수 */
+    @Column(nullable = false)
+    private Integer commentCount = 0;
+
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    // Getters and Setters
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getOriginalFileName() {
+        return originalFileName;
+    }
+
+    public void setOriginalFileName(String originalFileName) {
+        this.originalFileName = originalFileName;
+    }
+
+    public Integer getWidth() {
+        return width;
+    }
+
+    public void setWidth(Integer width) {
+        this.width = width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
+
+    public void setHeight(Integer height) {
+        this.height = height;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public CoverType getCoverType() {
+        return coverType;
+    }
+
+    public void setCoverType(CoverType coverType) {
+        this.coverType = coverType;
+    }
+
+    public ImageSource getImageSource() {
+        return imageSource;
+    }
+
+    public void setImageSource(ImageSource imageSource) {
+        this.imageSource = imageSource;
+    }
+
+    public String getSourceUrl() {
+        return sourceUrl;
+    }
+
+    public void setSourceUrl(String sourceUrl) {
+        this.sourceUrl = sourceUrl;
+    }
+
+    public String getDominantColor() {
+        return dominantColor;
+    }
+
+    public void setDominantColor(String dominantColor) {
+        this.dominantColor = dominantColor;
+    }
+
+    public CoverLayout getLayout() {
+        return layout;
+    }
+
+    public void setLayout(CoverLayout layout) {
+        this.layout = layout;
+    }
+
+    public Integer getLikeCount() {
+        return likeCount;
+    }
+
+    public void setLikeCount(Integer likeCount) {
+        this.likeCount = likeCount;
+    }
+
+    public Integer getCommentCount() {
+        return commentCount;
+    }
+
+    public void setCommentCount(Integer commentCount) {
+        this.commentCount = commentCount;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    /**
+     * 좋아요 수를 증가시킵니다.
+     */
+    public void incrementLikeCount() {
+        this.likeCount++;
+    }
+
+    /**
+     * 좋아요 수를 감소시킵니다.
+     */
+    public void decrementLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
+
+    /**
+     * 댓글 수를 증가시킵니다.
+     */
+    public void incrementCommentCount() {
+        this.commentCount++;
+    }
+
+    /**
+     * 댓글 수를 감소시킵니다.
+     */
+    public void decrementCommentCount() {
+        if (this.commentCount > 0) {
+            this.commentCount--;
+        }
+    }
+}

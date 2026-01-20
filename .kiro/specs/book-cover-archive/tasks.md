@@ -31,17 +31,17 @@
     - 같은 작품 그룹화를 위한 엔티티
     - _Requirements: 6.1_
 
-- [ ] 3. 도메인 모델 구현 - 책 관련 엔티티
-  - [ ] 3.1 BookCover 엔티티 구현
+- [x] 3. 도메인 모델 구현 - 책 관련 엔티티
+  - [x] 3.1 BookCover 엔티티 구현
     - 이미지 URL, 썸네일, 메타데이터 포함
     - _Requirements: 1.4, 14.8_
-  - [ ] 3.2 OriginalBook 엔티티 구현
+  - [x] 3.2 OriginalBook 엔티티 구현
     - Media 상속, 원서 고유 필드 포함
     - _Requirements: 1.1, 1.5, 1.6, 1.7_
-  - [ ] 3.3 TranslatedBook 엔티티 구현
+  - [x] 3.3 TranslatedBook 엔티티 구현
     - Media 상속, 원서 연결 포함
     - _Requirements: 2.1, 2.2, 2.5_
-  - [ ] 3.4 Redesign 엔티티 구현
+  - [x] 3.4 Redesign 엔티티 구현
     - 원서/번역서 연결, 회원 연결 포함
     - _Requirements: 3.1, 3.7_
 
