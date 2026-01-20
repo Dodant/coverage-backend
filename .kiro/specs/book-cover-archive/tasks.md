@@ -237,14 +237,14 @@
     - 저작권 삭제 요청 처리 API
     - _Requirements: 19.4_
 
-- [ ] 19. 에러 처리 및 예외 핸들링
-  - [ ] 19.1 GlobalExceptionHandler 구현
+- [x] 19. 에러 처리 및 예외 핸들링
+  - [x] 19.1 GlobalExceptionHandler 구현
     - 표준 에러 응답 형식
     - _Requirements: 1.3, 14.2, 14.6_
-  - [ ] 19.2 커스텀 예외 클래스 구현
+  - [x] 19.2 커스텀 예외 클래스 구현
     - ValidationException, DuplicateIsbnException, RateLimitExceededException
     - _Requirements: 12.1, 18.5_
-  - [ ] 19.3 에러 코드 상수 정의
+  - [x] 19.3 에러 코드 상수 정의
     - 에러 코드 체계 구현
     - _Requirements: 8.4_
 
