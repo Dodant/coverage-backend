@@ -45,17 +45,17 @@
     - 원서/번역서 연결, 회원 연결 포함
     - _Requirements: 3.1, 3.7_
 
-- [ ] 4. 도메인 모델 구현 - 회원 및 소셜
-  - [ ] 4.1 User 엔티티 구현
+- [x] 4. 도메인 모델 구현 - 회원 및 소셜
+  - [x] 4.1 User 엔티티 구현
     - 역할, 칭호, SNS 정보 포함
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
-  - [ ] 4.2 Like 엔티티 구현
+  - [x] 4.2 Like 엔티티 구현
     - 다형성 좋아요 (커버, 리디자인)
     - _Requirements: 4.1, 4.3_
-  - [ ] 4.3 Comment 엔티티 구현
+  - [x] 4.3 Comment 엔티티 구현
     - 다형성 댓글
     - _Requirements: 5.1, 5.3_
-  - [ ] 4.4 Collection, CollectionItem 엔티티 구현
+  - [x] 4.4 Collection, CollectionItem 엔티티 구현
     - 공개/비공개, 공유 토큰 포함
     - _Requirements: 11.1, 11.9, 11.10_
 
