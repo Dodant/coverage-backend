@@ -101,14 +101,14 @@
     - ISO 3166-1, ISO 639-1 검증
     - _Requirements: 13.1, 13.2_
 
-- [ ] 8. 서비스 레이어 구현 - 책 관리
-  - [ ] 8.1 BookService 구현
+- [x] 8. 서비스 레이어 구현 - 책 관리
+  - [x] 8.1 BookService 구현
     - 원서/번역서 CRUD, 중복 검사
     - _Requirements: 1.1, 1.5, 2.1, 12.1, 12.4_
-  - [ ] 8.2 RedesignService 구현
+  - [x] 8.2 RedesignService 구현
     - 리디자인 CRUD, 회원 연결
     - _Requirements: 3.1, 3.2, 3.5, 3.6_
-  - [ ] 8.3 컨트리뷰터 칭호 자동 부여 로직 구현
+  - [x] 8.3 컨트리뷰터 칭호 자동 부여 로직 구현
     - 등록 횟수 추적 및 칭호 변경
     - _Requirements: 7.5, 7.6_
 
