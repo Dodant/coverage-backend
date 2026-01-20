@@ -59,3 +59,29 @@ class ContentNotAvailableException(
     val contentId: UUID,
     val reason: String
 ) : BookArchiveException("$contentType with ID '$contentId' is not available: $reason")
+
+/**
+ * Exception thrown when image validation fails.
+ * Requirements: 14.1, 14.4, 14.5
+ */
+class ImageValidationException(
+    message: String,
+    val errors: List<String> = emptyList()
+) : BookArchiveException(message)
+
+/**
+ * Exception thrown when image processing fails.
+ * Requirements: 14.7, 14.8
+ */
+class ImageProcessingException(
+    message: String,
+    cause: Throwable? = null
+) : BookArchiveException(message, cause)
+
+/**
+ * Exception thrown when storage operations fail.
+ */
+class StorageException(
+    message: String,
+    cause: Throwable? = null
+) : BookArchiveException(message, cause)
