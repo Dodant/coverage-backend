@@ -259,8 +259,8 @@
     - 신고 자동 비공개 알림
     - _Requirements: 15.4_
 
-- [ ] 21. API 문서화
-  - [ ] 21.1 OpenAPI/Swagger 문서 생성
+- [x] 21. API 문서화
+  - [x] 21.1 OpenAPI/Swagger 문서 생성
     - _Requirements: 21.1_
 
 ## Notes

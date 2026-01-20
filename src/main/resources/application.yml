@@ -62,6 +62,19 @@ rate-limit:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    enabled: true
   swagger-ui:
     path: /swagger-ui.html
+    enabled: true
     operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    filter: true
+    show-extensions: true
+    show-common-extensions: true
+    doc-expansion: none
+    default-models-expand-depth: 3
+    default-model-expand-depth: 3
+  show-actuator: false
+  packages-to-scan: com.bookcover.archive.controller
+  paths-to-match: /**
