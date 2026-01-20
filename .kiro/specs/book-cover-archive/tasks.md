@@ -11,10 +11,10 @@
     - Spring Boot 3.x, Kotlin, Spring Data JPA, Spring Security, PostgreSQL, Redis, Elasticsearch 의존성 추가
     - Kotest 테스트 프레임워크 설정
     - _Requirements: 21.1_
-  - [ ] 1.2 Docker Compose 개발 환경 설정
+  - [x] 1.2 Docker Compose 개발 환경 설정
     - PostgreSQL, Redis, Elasticsearch, MinIO 컨테이너 구성
     - _Requirements: 21.1_
-  - [ ] 1.3 애플리케이션 설정 파일 구성
+  - [x] 1.3 애플리케이션 설정 파일 구성
     - application.yml 프로파일별 설정 (dev, test, prod)
     - _Requirements: 21.1_
 
