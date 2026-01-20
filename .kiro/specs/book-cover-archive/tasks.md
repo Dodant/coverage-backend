@@ -18,17 +18,17 @@
     - application.yml 프로파일별 설정 (dev, test, prod)
     - _Requirements: 21.1_
 
-- [ ] 2. 도메인 모델 구현 - 기본 엔티티
-  - [ ] 2.1 공통 엔티티 및 Enum 구현
+- [x] 2. 도메인 모델 구현 - 기본 엔티티
+  - [x] 2.1 공통 엔티티 및 Enum 구현
     - ContentStatus, BaseEntity 구현
     - _Requirements: 21.2_
-  - [ ] 2.2 Media 추상 클래스 구현
+  - [x] 2.2 Media 추상 클래스 구현
     - 확장 가능한 미디어 베이스 클래스
     - _Requirements: 21.1, 21.2_
-  - [ ] 2.3 Author, Publisher, Designer, Translator 엔티티 구현
+  - [x] 2.3 Author, Publisher, Designer, Translator 엔티티 구현
     - 별칭(alias) 지원 포함
     - _Requirements: 10.4, 19.6_
-  - [ ] 2.4 Work 엔티티 구현
+  - [x] 2.4 Work 엔티티 구현
     - 같은 작품 그룹화를 위한 엔티티
     - _Requirements: 6.1_
   - [ ]* 2.5 Property 테스트: 데이터 정규화

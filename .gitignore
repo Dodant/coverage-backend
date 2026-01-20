@@ -2,6 +2,7 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+*.class
 
 # IDE
 .idea/
@@ -9,10 +10,22 @@ build/
 *.iws
 *.ipr
 .vscode/
+
+# OS
 .DS_Store
+*.swp
+*.swo
+*~
 
 # Kiro
 .kiro/
 
 # Environment
 .env
+
+# Logs
+*.log
+logs/
+
+# Test
+out/
