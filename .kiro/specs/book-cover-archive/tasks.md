@@ -153,17 +153,17 @@
     - API 요청 레이트 리밋 적용
     - _Requirements: 18.2, 18.3_
 
-- [ ] 13. 서비스 레이어 구현 - 관리 기능
-  - [ ] 13.1 ModerationService - 신고 처리 구현
+- [x] 13. 서비스 레이어 구현 - 관리 기능
+  - [x] 13.1 ModerationService - 신고 처리 구현
     - 신고 접수, 자동 비공개 처리
     - _Requirements: 15.2, 15.3, 15.4_
-  - [ ] 13.2 ModerationService - 콘텐츠 관리 구현
+  - [x] 13.2 ModerationService - 콘텐츠 관리 구현
     - 숨김, 복원, 삭제 처리
     - _Requirements: 15.5, 15.6, 15.7_
-  - [ ] 13.3 AuditService 구현
+  - [x] 13.3 AuditService 구현
     - 감사 로그 기록, 조회
     - _Requirements: 16.1, 16.2, 16.5_
-  - [ ] 13.4 TakedownService 구현
+  - [x] 13.4 TakedownService 구현
     - 저작권 삭제 요청 처리
     - _Requirements: 17.1, 17.3, 17.4_
 
