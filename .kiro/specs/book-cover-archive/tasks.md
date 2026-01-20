@@ -112,14 +112,14 @@
     - 등록 횟수 추적 및 칭호 변경
     - _Requirements: 7.5, 7.6_
 
-- [ ] 9. 서비스 레이어 구현 - 소셜 기능
-  - [ ] 9.1 SocialService - 좋아요 기능 구현
+- [x] 9. 서비스 레이어 구현 - 소셜 기능
+  - [x] 9.1 SocialService - 좋아요 기능 구현
     - 토글 좋아요, 카운트 관리
     - _Requirements: 4.1, 4.2, 4.4_
-  - [ ] 9.2 SocialService - 댓글 기능 구현
+  - [x] 9.2 SocialService - 댓글 기능 구현
     - 댓글 CRUD, 공백 검증
     - _Requirements: 5.1, 5.2, 5.4, 5.5_
-  - [ ] 9.3 CollectionService 구현
+  - [x] 9.3 CollectionService 구현
     - 컬렉션 CRUD, 아이템 관리, 복제
     - _Requirements: 11.1, 11.2, 11.7, 11.11_
 
