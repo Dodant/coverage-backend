@@ -134,14 +134,14 @@
     - 색공간 표준화
     - _Requirements: 14.7_
 
-- [ ] 11. 인프라스트럭처 구현 - 검색
-  - [ ] 11.1 Elasticsearch 인덱스 설정
+- [x] 11. 인프라스트럭처 구현 - 검색
+  - [x] 11.1 Elasticsearch 인덱스 설정
     - 한국어 분석기 설정, 인덱스 매핑
     - _Requirements: 8.1_
-  - [ ] 11.2 SearchService 구현
+  - [x] 11.2 SearchService 구현
     - 전문 검색, 필터링, 정렬
     - _Requirements: 8.1, 8.2, 8.3_
-  - [ ] 11.3 브라우징 기능 구현
+  - [x] 11.3 브라우징 기능 구현
     - 국가별, 연도별, 장르별, 태그별 브라우징
     - _Requirements: 8.5, 8.6, 8.7, 20.6_
 

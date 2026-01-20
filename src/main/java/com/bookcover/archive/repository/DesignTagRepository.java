@@ -140,4 +140,11 @@ public interface DesignTagRepository extends JpaRepository<DesignTag, UUID> {
      * @return 태그 페이지
      */
     Page<DesignTag> findByApprovedOrderByUsageCountDesc(boolean approved, Pageable pageable);
+
+    /**
+     * 승인된 태그 목록을 사용 횟수 기준으로 정렬하여 조회합니다.
+     *
+     * @return 태그 목록
+     */
+    List<DesignTag> findByApprovedTrueOrderByUsageCountDesc();
 }
