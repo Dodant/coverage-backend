@@ -178,17 +178,17 @@
     - 프로필 조회, 수정
     - _Requirements: 7.7, 7.8_
 
-- [ ] 15. API 컨트롤러 구현 - 책 관리
-  - [ ] 15.1 OriginalBookController 구현
+- [x] 15. API 컨트롤러 구현 - 책 관리
+  - [x] 15.1 OriginalBookController 구현
     - 원서 CRUD API
     - _Requirements: 1.1, 1.5_
-  - [ ] 15.2 TranslatedBookController 구현
+  - [x] 15.2 TranslatedBookController 구현
     - 번역서 CRUD API
     - _Requirements: 2.1, 2.6_
-  - [ ] 15.3 RedesignController 구현
+  - [x] 15.3 RedesignController 구현
     - 리디자인 CRUD API
     - _Requirements: 3.1, 3.4_
-  - [ ] 15.4 CoverController 구현
+  - [x] 15.4 CoverController 구현
     - 커버 이미지 업로드, 조회
     - _Requirements: 14.1, 14.8_
 
