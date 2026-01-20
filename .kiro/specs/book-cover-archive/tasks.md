@@ -167,14 +167,14 @@
     - 저작권 삭제 요청 처리
     - _Requirements: 17.1, 17.3, 17.4_
 
-- [ ] 14. API 컨트롤러 구현 - 인증
-  - [ ] 14.1 Spring Security 설정
+- [-] 14. API 컨트롤러 구현 - 인증
+  - [x] 14.1 Spring Security 설정
     - JWT 인증, 역할 기반 권한
     - _Requirements: 7.1_
-  - [ ] 14.2 AuthController 구현
+  - [x] 14.2 AuthController 구현
     - 회원가입, 로그인, 토큰 갱신
     - _Requirements: 7.1, 7.8_
-  - [ ] 14.3 UserController 구현
+  - [-] 14.3 UserController 구현
     - 프로필 조회, 수정
     - _Requirements: 7.7, 7.8_
 
