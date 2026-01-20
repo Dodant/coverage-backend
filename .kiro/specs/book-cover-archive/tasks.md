@@ -73,17 +73,17 @@
     - 저작권 삭제 요청
     - _Requirements: 17.1, 17.2_
 
-- [ ] 6. Repository 레이어 구현
-  - [ ] 6.1 기본 Repository 인터페이스 구현
+- [x] 6. Repository 레이어 구현
+  - [x] 6.1 기본 Repository 인터페이스 구현
     - OriginalBookRepository, TranslatedBookRepository, RedesignRepository
     - _Requirements: 1.5, 2.1, 3.4_
-  - [ ] 6.2 회원/소셜 Repository 구현
+  - [x] 6.2 회원/소셜 Repository 구현
     - UserRepository, LikeRepository, CommentRepository, CollectionRepository
     - _Requirements: 4.1, 5.1, 11.2_
-  - [ ] 6.3 관리 Repository 구현
+  - [x] 6.3 관리 Repository 구현
     - ReportRepository, AuditLogRepository, DesignTagRepository
     - _Requirements: 15.3, 16.2, 20.1_
-  - [ ] 6.4 커스텀 쿼리 메서드 구현
+  - [x] 6.4 커스텀 쿼리 메서드 구현
     - 중복 검사, 유사 항목 검색 쿼리
     - _Requirements: 12.1, 12.2_
 
