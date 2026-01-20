@@ -1,0 +1,65 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 6000ms
+
+    elasticsearch:
+      repositories:
+        enabled: true
+
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: bookcover-prod-group
+      auto-offset-reset: latest
+    producer:
+      acks: all
+      retries: 3
+
+# S3 Configuration for Production
+s3:
+  endpoint: ${S3_ENDPOINT:}
+  access-key: ${S3_ACCESS_KEY}
+  secret-key: ${S3_SECRET_KEY}
+  bucket-name: ${S3_BUCKET_NAME}
+  region: ${S3_REGION:ap-northeast-2}
+
+# JWT Configuration - Must be set via environment variable
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+logging:
+  level:
+    root: WARN
+    com.bookcover.archive: INFO
+    org.springframework.security: WARN
+
+server:
+  tomcat:
+    max-threads: 200
+    accept-count: 100

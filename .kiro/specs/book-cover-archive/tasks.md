@@ -6,14 +6,14 @@
 
 ## Tasks
 
-- [ ] 1. 프로젝트 초기 설정
-  - [ ] 1.1 Spring Boot 프로젝트 생성 및 의존성 설정
+- [x] 1. 프로젝트 초기 설정
+  - [x] 1.1 Spring Boot 프로젝트 생성 및 의존성 설정
     - Spring Boot 3.x, Java 21, Spring Data JPA, Spring Security, PostgreSQL, Redis, Elasticsearch 의존성 추가
     - _Requirements: 21.1_
-  - [ ] 1.2 Docker Compose 개발 환경 설정
+  - [x] 1.2 Docker Compose 개발 환경 설정
     - PostgreSQL, Redis, Elasticsearch, MinIO 컨테이너 구성
     - _Requirements: 21.1_
-  - [ ] 1.3 애플리케이션 설정 파일 구성
+  - [x] 1.3 애플리케이션 설정 파일 구성
     - application.yml 프로파일별 설정 (dev, test, prod)
     - _Requirements: 21.1_
 

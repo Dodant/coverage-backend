@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/bookcover_test
+    username: bookcover
+    password: bookcover123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6380
+
+    elasticsearch:
+      repositories:
+        enabled: true
+
+  elasticsearch:
+    uris: http://localhost:9201
+
+  kafka:
+    bootstrap-servers: localhost:9093
+    consumer:
+      group-id: bookcover-test-group
+      auto-offset-reset: earliest
+
+# S3/MinIO Configuration for Test
+s3:
+  endpoint: http://localhost:9002
+  access-key: minioadmin
+  secret-key: minioadmin123
+  bucket-name: bookcovers-test
+  region: us-east-1
+
+logging:
+  level:
+    root: WARN
+    com.bookcover.archive: INFO
