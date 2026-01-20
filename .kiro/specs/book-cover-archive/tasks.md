@@ -7,7 +7,7 @@
 ## Tasks
 
 - [ ] 1. 프로젝트 초기 설정
-  - [ ] 1.1 Spring Boot 프로젝트 생성 및 의존성 설정
+  - [x] 1.1 Spring Boot 프로젝트 생성 및 의존성 설정
     - Spring Boot 3.x, Kotlin, Spring Data JPA, Spring Security, PostgreSQL, Redis, Elasticsearch 의존성 추가
     - Kotest 테스트 프레임워크 설정
     - _Requirements: 21.1_

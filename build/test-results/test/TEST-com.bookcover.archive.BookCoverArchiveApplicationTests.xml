@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.bookcover.archive.BookCoverArchiveApplicationTests" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-01-20T03:34:19" hostname="Maestrohs-MBP.local" time="0.041">
+  <properties/>
+  <testcase name="application main class exists" classname="com.bookcover.archive.BookCoverArchiveApplicationTests" time="0.041"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
