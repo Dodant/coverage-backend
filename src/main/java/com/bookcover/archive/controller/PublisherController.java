@@ -1,0 +1,106 @@
+package com.bookcover.archive.controller;
+
+import com.bookcover.archive.controller.dto.book.OriginalBookResponse;
+import com.bookcover.archive.controller.dto.contributor.PublisherProfileResponse;
+import com.bookcover.archive.controller.dto.contributor.PublisherResponse;
+import com.bookcover.archive.domain.book.OriginalBook;
+import com.bookcover.archive.domain.contributor.Publisher;
+import com.bookcover.archive.exception.ResourceNotFoundException;
+import com.bookcover.archive.repository.OriginalBookRepository;
+import com.bookcover.archive.repository.PublisherRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
+
+/**
+ * 출판사 API 컨트롤러.
+ * 출판사 프로필 및 출간 목록 조회 엔드포인트를 제공합니다.
+ *
+ * Requirements: 10.1, 10.4
+ */
+@RestController
+@RequestMapping("/publishers")
+@Tag(name = "Publishers", description = "출판사 관련 API")
+public class PublisherController {
+
+    private final PublisherRepository publisherRepository;
+    private final OriginalBookRepository originalBookRepository;
+
+    public PublisherController(PublisherRepository publisherRepository, OriginalBookRepository originalBookRepository) {
+        this.publisherRepository = publisherRepository;
+        this.originalBookRepository = originalBookRepository;
+    }
+
+    /**
+     * 출판사 프로필을 조회합니다.
+     *
+     * Requirements: 10.4 - 출판사 전용 프로필 페이지 제공
+     * Requirements: 10.5 - 엔티티의 기본 정보와 관련 북커버 수 표시
+     */
+    @GetMapping("/{id}")
+    @Operation(summary = "출판사 프로필 조회", description = "출판사의 프로필 정보와 관련 북커버 수를 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "출판사 없음")
+    })
+    public ResponseEntity<PublisherProfileResponse> getPublisherProfile(@PathVariable UUID id) {
+        Publisher publisher = publisherRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Publisher", id));
+        long bookCount = originalBookRepository.countByPublisherId(id);
+        return ResponseEntity.ok(PublisherProfileResponse.from(publisher, bookCount));
+    }
+
+    /**
+     * 출판사의 출간 목록을 조회합니다.
+     *
+     * Requirements: 10.1 - 출판사에서 출간한 모든 책의 북커버 목록 표시
+     */
+    @GetMapping("/{id}/books")
+    @Operation(summary = "출판사 출간 목록 조회", description = "출판사에서 출간한 모든 책의 북커버 목록을 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "404", description = "출판사 없음")
+    })
+    public ResponseEntity<Page<OriginalBookResponse>> getPublisherBooks(
+            @PathVariable UUID id,
+            @PageableDefault(size = 20) Pageable pageable) {
+        publisherRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Publisher", id));
+        Page<OriginalBook> books = originalBookRepository.findByPublisherId(id, pageable);
+        Page<OriginalBookResponse> response = books.map(OriginalBookResponse::from);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 출판사 목록을 조회합니다.
+     */
+    @GetMapping
+    @Operation(summary = "출판사 목록 조회", description = "출판사 목록을 페이징하여 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    public ResponseEntity<Page<PublisherResponse>> getPublishers(
+            @RequestParam(required = false) String name,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<Publisher> publishers;
+        if (name != null && !name.isBlank()) {
+            publishers = publisherRepository.findByNameContainingIgnoreCase(name, pageable);
+        } else {
+            publishers = publisherRepository.findAll(pageable);
+        }
+        Page<PublisherResponse> response = publishers.map(PublisherResponse::from);
+        return ResponseEntity.ok(response);
+    }
+}

@@ -144,4 +144,28 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
      * @return 원서 페이지
      */
     Page<OriginalBook> findByOriginalTitleContainingIgnoreCase(String originalTitle, Pageable pageable);
+
+    /**
+     * 작가 ID로 원서 수를 조회합니다.
+     *
+     * @param authorId 작가 ID
+     * @return 원서 수
+     */
+    long countByAuthorId(UUID authorId);
+
+    /**
+     * 출판사 ID로 원서 수를 조회합니다.
+     *
+     * @param publisherId 출판사 ID
+     * @return 원서 수
+     */
+    long countByPublisherId(UUID publisherId);
+
+    /**
+     * 디자이너 ID로 원서 수를 조회합니다.
+     *
+     * @param designerId 디자이너 ID
+     * @return 원서 수
+     */
+    long countByDesignerId(UUID designerId);
 }

@@ -206,17 +206,17 @@
     - 검색, 필터링, 브라우징 API
     - _Requirements: 8.1, 8.5, 8.6, 8.7_
 
-- [ ] 17. API 컨트롤러 구현 - 엔티티 조회
-  - [ ] 17.1 AuthorController 구현
+- [x] 17. API 컨트롤러 구현 - 엔티티 조회
+  - [x] 17.1 AuthorController 구현
     - 작가 프로필, 작품 목록 API
     - _Requirements: 10.2, 10.4_
-  - [ ] 17.2 PublisherController 구현
+  - [x] 17.2 PublisherController 구현
     - 출판사 프로필, 출간 목록 API
     - _Requirements: 10.1, 10.4_
-  - [ ] 17.3 DesignerController 구현
+  - [x] 17.3 DesignerController 구현
     - 디자이너 프로필, 작품 목록 API
     - _Requirements: 10.3, 10.4_
-  - [ ] 17.4 TagController 구현
+  - [x] 17.4 TagController 구현
     - 태그 목록, 태그별 브라우징 API
     - _Requirements: 20.3, 20.6_
 
