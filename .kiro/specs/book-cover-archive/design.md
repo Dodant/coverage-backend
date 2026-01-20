@@ -6,12 +6,13 @@
 
 ### 기술 스택
 
-- **Backend**: Spring Boot 3.x (Kotlin)
+- **Backend**: Spring Boot 3.x (Java 21)
 - **Database**: PostgreSQL (관계형 데이터), Redis (캐싱, 레이트 리밋)
 - **Search**: Elasticsearch (전문 검색)
 - **Storage**: AWS S3 또는 MinIO (이미지 저장)
 - **Message Queue**: Apache Kafka (비동기 처리)
 - **Authentication**: Spring Security + JWT
+- **Build Tool**: Gradle (Groovy DSL)
 
 ## Architecture
 
@@ -87,462 +88,478 @@ graph TB
 
 확장성을 위한 미디어 추상 클래스:
 
-```kotlin
+```java
 @Entity
 @Inheritance(strategy = InheritanceType.JOINED)
 @DiscriminatorColumn(name = "media_type")
-abstract class Media(
+public abstract class Media {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false)
-    var title: String,
+    private String title;
 
     @Column(nullable = false)
-    val countryCode: String,  // ISO 3166-1
+    private String countryCode;  // ISO 3166-1
 
     @Column(nullable = false)
-    val languageCode: String,  // ISO 639-1
+    private String languageCode;  // ISO 639-1
 
     @Column(nullable = false)
-    val year: Int,
+    private Integer year;
 
     @Enumerated(EnumType.STRING)
-    var status: ContentStatus = ContentStatus.PUBLISHED,
+    private ContentStatus status = ContentStatus.PUBLISHED;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val createdBy: User,
+    private User createdBy;
 
-    val createdAt: Instant = Instant.now(),
-    var updatedAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
+    private Instant updatedAt = Instant.now();
 
-enum class ContentStatus {
+    // Getters and Setters
+}
+
+public enum ContentStatus {
     DRAFT, PUBLISHED, HIDDEN, DELETED
 }
 ```
 
 #### 1.2 OriginalBook (원서)
 
-```kotlin
+```java
 @Entity
 @DiscriminatorValue("BOOK_ORIGINAL")
-class OriginalBook(
-    title: String,
-    countryCode: String,
-    languageCode: String,
-    year: Int,
-    createdBy: User,
+public class OriginalBook extends Media {
+    @Column(nullable = false)
+    private String originalTitle;
 
     @Column(nullable = false)
-    val originalTitle: String,
-
-    @Column(nullable = false)
-    val genre: String,
+    private String genre;
 
     @Column(unique = true)
-    val isbn: String? = null,
+    private String isbn;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val author: Author,
+    private Author author;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val publisher: Publisher,
+    private Publisher publisher;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val designer: Designer? = null,
+    private Designer designer;
 
-    val edition: String? = null,
+    private String edition;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val work: Work? = null,  // 같은 작품 그룹화
+    private Work work;  // 같은 작품 그룹화
 
-    @OneToMany(mappedBy = "originalBook", cascade = [CascadeType.ALL])
-    val translations: MutableList<TranslatedBook> = mutableListOf(),
+    @OneToMany(mappedBy = "originalBook", cascade = CascadeType.ALL)
+    private List<TranslatedBook> translations = new ArrayList<>();
 
-    @OneToOne(cascade = [CascadeType.ALL], optional = false)
-    val frontCover: BookCover,
+    @OneToOne(cascade = CascadeType.ALL, optional = false)
+    private BookCover frontCover;
 
-    @OneToOne(cascade = [CascadeType.ALL])
-    val backCover: BookCover? = null
-) : Media(title = title, countryCode = countryCode, languageCode = languageCode, year = year, createdBy = createdBy)
+    @OneToOne(cascade = CascadeType.ALL)
+    private BookCover backCover;
+
+    // Getters and Setters
+}
 ```
 
 #### 1.3 TranslatedBook (번역서)
 
-```kotlin
+```java
 @Entity
 @DiscriminatorValue("BOOK_TRANSLATED")
-class TranslatedBook(
-    title: String,
-    countryCode: String,
-    languageCode: String,
-    year: Int,
-    createdBy: User,
-
+public class TranslatedBook extends Media {
     @Column(unique = true)
-    val isbn: String? = null,
+    private String isbn;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val originalBook: OriginalBook,
+    private OriginalBook originalBook;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val author: Author,
+    private Author author;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val translator: Translator,
+    private Translator translator;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val publisher: Publisher,
+    private Publisher publisher;
 
-    val edition: String? = null,
+    private String edition;
 
-    @OneToOne(cascade = [CascadeType.ALL], optional = false)
-    val frontCover: BookCover,
+    @OneToOne(cascade = CascadeType.ALL, optional = false)
+    private BookCover frontCover;
 
-    @OneToOne(cascade = [CascadeType.ALL])
-    val backCover: BookCover? = null
-) : Media(title = title, countryCode = countryCode, languageCode = languageCode, year = year, createdBy = createdBy)
+    @OneToOne(cascade = CascadeType.ALL)
+    private BookCover backCover;
+
+    // Getters and Setters
+}
 ```
 
 #### 1.4 BookCover (북커버)
 
-```kotlin
+```java
 @Entity
-class BookCover(
+public class BookCover {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false)
-    val imageUrl: String,
+    private String imageUrl;
 
     @Column(nullable = false)
-    val thumbnailUrl: String,
+    private String thumbnailUrl;
 
     @Column(nullable = false)
-    val originalFileName: String,
+    private String originalFileName;
 
-    val width: Int,
-    val height: Int,
-    val fileSize: Long,
+    private Integer width;
+    private Integer height;
+    private Long fileSize;
 
     @Enumerated(EnumType.STRING)
-    val coverType: CoverType,
+    private CoverType coverType;
 
     @Enumerated(EnumType.STRING)
-    val imageSource: ImageSource? = null,
+    private ImageSource imageSource;
 
-    val sourceUrl: String? = null,
+    private String sourceUrl;
 
     @ManyToMany
     @JoinTable(name = "cover_tags")
-    val tags: MutableSet<DesignTag> = mutableSetOf(),
+    private Set<DesignTag> tags = new HashSet<>();
 
-    val dominantColor: String? = null,  // HEX color
+    private String dominantColor;  // HEX color
 
     @Enumerated(EnumType.STRING)
-    val layout: CoverLayout? = null,
+    private CoverLayout layout;
 
-    var likeCount: Int = 0,
-    var commentCount: Int = 0,
+    private Integer likeCount = 0;
+    private Integer commentCount = 0;
 
-    val createdAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
 
-enum class CoverType { FRONT, BACK }
-enum class ImageSource { SCAN, PHOTO, LINK, OTHER }
-enum class CoverLayout { CENTER, LEFT, RIGHT, FULL_BLEED, MINIMAL }
+    // Getters and Setters
+}
+
+public enum CoverType { FRONT, BACK }
+public enum ImageSource { SCAN, PHOTO, LINK, OTHER }
+public enum CoverLayout { CENTER, LEFT, RIGHT, FULL_BLEED, MINIMAL }
 ```
 
 #### 1.5 Redesign (리디자인)
 
-```kotlin
+```java
 @Entity
-class Redesign(
+public class Redesign {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false)
-    val imageUrl: String,
+    private String imageUrl;
 
     @Column(nullable = false)
-    val thumbnailUrl: String,
+    private String thumbnailUrl;
 
     @Column(nullable = false, length = 2000)
-    val description: String,
+    private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val originalBook: OriginalBook? = null,
+    private OriginalBook originalBook;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    val translatedBook: TranslatedBook? = null,
+    private TranslatedBook translatedBook;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val createdBy: User,
+    private User createdBy;
 
     @ManyToMany
     @JoinTable(name = "redesign_tags")
-    val tags: MutableSet<DesignTag> = mutableSetOf(),
+    private Set<DesignTag> tags = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
-    var status: ContentStatus = ContentStatus.PUBLISHED,
+    private ContentStatus status = ContentStatus.PUBLISHED;
 
-    var likeCount: Int = 0,
-    var commentCount: Int = 0,
+    private Integer likeCount = 0;
+    private Integer commentCount = 0;
 
-    val createdAt: Instant = Instant.now(),
-    var updatedAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
+    private Instant updatedAt = Instant.now();
+
+    // Getters and Setters
+}
 ```
 
 #### 1.6 User (회원)
 
-```kotlin
+```java
 @Entity
 @Table(name = "users")
-class User(
+public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false, unique = true)
-    val email: String,
+    private String email;
 
     @Column(nullable = false)
-    var displayName: String,
+    private String displayName;
 
     @Column(nullable = false)
-    var passwordHash: String,
+    private String passwordHash;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var role: UserRole,
+    private UserRole role;
 
     @Enumerated(EnumType.STRING)
-    var title: UserTitle = UserTitle.MEMBER,
+    private UserTitle title = UserTitle.MEMBER;
 
-    var websiteUrl: String? = null,
-    var portfolioUrl: String? = null,
+    private String websiteUrl;
+    private String portfolioUrl;
 
     @ElementCollection
     @CollectionTable(name = "user_sns_accounts")
-    val snsAccounts: MutableMap<String, String> = mutableMapOf(),
+    @MapKeyColumn(name = "platform")
+    @Column(name = "account")
+    private Map<String, String> snsAccounts = new HashMap<>();
 
-    var contributionCount: Int = 0,
+    private Integer contributionCount = 0;
 
     @Enumerated(EnumType.STRING)
-    var status: UserStatus = UserStatus.ACTIVE,
+    private UserStatus status = UserStatus.ACTIVE;
 
-    var reportRestricted: Boolean = false,
-    var suspendedUntil: Instant? = null,
+    private Boolean reportRestricted = false;
+    private Instant suspendedUntil;
 
-    val createdAt: Instant = Instant.now(),
-    var lastLoginAt: Instant? = null
-)
+    private Instant createdAt = Instant.now();
+    private Instant lastLoginAt;
 
-enum class UserRole { PUBLISHER, AUTHOR, DESIGNER, MEMBER, ADMIN }
-enum class UserTitle { MEMBER, CONTRIBUTOR }
-enum class UserStatus { ACTIVE, SUSPENDED, DELETED }
+    // Getters and Setters
+}
+
+public enum UserRole { PUBLISHER, AUTHOR, DESIGNER, MEMBER, ADMIN }
+public enum UserTitle { MEMBER, CONTRIBUTOR }
+public enum UserStatus { ACTIVE, SUSPENDED, DELETED }
 ```
 
 #### 1.7 Collection (컬렉션)
 
-```kotlin
+```java
 @Entity
-class Collection(
+public class Collection {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false)
-    var name: String,
+    private String name;
 
-    var description: String? = null,
+    private String description;
 
     @Enumerated(EnumType.STRING)
-    var visibility: CollectionVisibility = CollectionVisibility.PRIVATE,
+    private CollectionVisibility visibility = CollectionVisibility.PRIVATE;
 
     @Column(unique = true)
-    val shareToken: String = UUID.randomUUID().toString(),
+    private String shareToken = UUID.randomUUID().toString();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val owner: User,
+    private User owner;
 
-    @OneToMany(mappedBy = "collection", cascade = [CascadeType.ALL], orphanRemoval = true)
-    val items: MutableList<CollectionItem> = mutableListOf(),
+    @OneToMany(mappedBy = "collection", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CollectionItem> items = new ArrayList<>();
 
-    val createdAt: Instant = Instant.now(),
-    var updatedAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
+    private Instant updatedAt = Instant.now();
 
-enum class CollectionVisibility { PRIVATE, PUBLIC, LINK_ONLY }
+    // Getters and Setters
+}
+
+public enum CollectionVisibility { PRIVATE, PUBLIC, LINK_ONLY }
 
 @Entity
-class CollectionItem(
+public class CollectionItem {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val collection: Collection,
+    private Collection collection;
 
     @Enumerated(EnumType.STRING)
-    val itemType: CollectionItemType,
+    private CollectionItemType itemType;
 
-    val itemId: UUID,
+    private UUID itemId;
 
-    val addedAt: Instant = Instant.now()
-)
+    private Instant addedAt = Instant.now();
 
-enum class CollectionItemType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
+    // Getters and Setters
+}
+
+public enum CollectionItemType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
 ```
 
 #### 1.8 Social (좋아요, 댓글)
 
-```kotlin
+```java
 @Entity
-@Table(uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "target_type", "target_id"])])
-class Like(
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "target_type", "target_id"}))
+public class Like {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val user: User,
+    private User user;
 
     @Enumerated(EnumType.STRING)
-    val targetType: LikeTargetType,
+    private LikeTargetType targetType;
 
-    val targetId: UUID,
+    private UUID targetId;
 
-    val createdAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
 
-enum class LikeTargetType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
+    // Getters and Setters
+}
+
+public enum LikeTargetType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
 
 @Entity
-class Comment(
+public class Comment {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false, length = 1000)
-    var content: String,
+    private String content;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val author: User,
+    private User author;
 
     @Enumerated(EnumType.STRING)
-    val targetType: CommentTargetType,
+    private CommentTargetType targetType;
 
-    val targetId: UUID,
+    private UUID targetId;
 
     @Enumerated(EnumType.STRING)
-    var status: ContentStatus = ContentStatus.PUBLISHED,
+    private ContentStatus status = ContentStatus.PUBLISHED;
 
-    val createdAt: Instant = Instant.now(),
-    var updatedAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
+    private Instant updatedAt = Instant.now();
 
-enum class CommentTargetType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
+    // Getters and Setters
+}
+
+public enum CommentTargetType { ORIGINAL_COVER, TRANSLATED_COVER, REDESIGN }
 ```
 
 #### 1.9 DesignTag (디자인 태그)
 
-```kotlin
+```java
 @Entity
-class DesignTag(
+public class DesignTag {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Column(nullable = false, unique = true)
-    val name: String,
+    private String name;
 
     @Enumerated(EnumType.STRING)
-    val category: TagCategory,
+    private TagCategory category;
 
-    var usageCount: Int = 0,
+    private Integer usageCount = 0;
 
-    var approved: Boolean = true
-)
+    private Boolean approved = true;
 
-enum class TagCategory { STYLE, COLOR, LAYOUT, TYPOGRAPHY, ILLUSTRATION }
+    // Getters and Setters
+}
+
+public enum TagCategory { STYLE, COLOR, LAYOUT, TYPOGRAPHY, ILLUSTRATION }
 ```
 
 #### 1.10 Report (신고)
 
-```kotlin
+```java
 @Entity
-class Report(
+public class Report {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val reporter: User,
+    private User reporter;
 
     @Enumerated(EnumType.STRING)
-    val targetType: ReportTargetType,
+    private ReportTargetType targetType;
 
-    val targetId: UUID,
-
-    @Enumerated(EnumType.STRING)
-    val reason: ReportReason,
-
-    val description: String? = null,
+    private UUID targetId;
 
     @Enumerated(EnumType.STRING)
-    var status: ReportStatus = ReportStatus.PENDING,
+    private ReportReason reason;
+
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    private ReportStatus status = ReportStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    var reviewedBy: User? = null,
+    private User reviewedBy;
 
-    var reviewNote: String? = null,
-    var reviewedAt: Instant? = null,
+    private String reviewNote;
+    private Instant reviewedAt;
 
-    val createdAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
 
-enum class ReportTargetType { ORIGINAL_BOOK, TRANSLATED_BOOK, REDESIGN, COMMENT }
-enum class ReportReason { INAPPROPRIATE, COPYRIGHT, SPAM, WRONG_INFO, OTHER }
-enum class ReportStatus { PENDING, APPROVED, REJECTED }
+    // Getters and Setters
+}
+
+public enum ReportTargetType { ORIGINAL_BOOK, TRANSLATED_BOOK, REDESIGN, COMMENT }
+public enum ReportReason { INAPPROPRIATE, COPYRIGHT, SPAM, WRONG_INFO, OTHER }
+public enum ReportStatus { PENDING, APPROVED, REJECTED }
 ```
 
 #### 1.11 AuditLog (감사 로그)
 
-```kotlin
+```java
 @Entity
-class AuditLog(
+public class AuditLog {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    private UUID id;
 
     @Enumerated(EnumType.STRING)
-    val action: AuditAction,
+    private AuditAction action;
 
     @Enumerated(EnumType.STRING)
-    val entityType: AuditEntityType,
+    private AuditEntityType entityType;
 
-    val entityId: UUID,
+    private UUID entityId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    val performedBy: User,
+    private User performedBy;
 
     @Column(columnDefinition = "jsonb")
-    val previousValue: String? = null,
+    private String previousValue;
 
     @Column(columnDefinition = "jsonb")
-    val newValue: String? = null,
+    private String newValue;
 
-    val createdAt: Instant = Instant.now()
-)
+    private Instant createdAt = Instant.now();
 
-enum class AuditAction { CREATE, UPDATE, DELETE, MERGE, SPLIT, STATUS_CHANGE }
-enum class AuditEntityType { ORIGINAL_BOOK, TRANSLATED_BOOK, REDESIGN, USER, COLLECTION, AUTHOR, PUBLISHER, DESIGNER }
+    // Getters and Setters
+}
+
+public enum AuditAction { CREATE, UPDATE, DELETE, MERGE, SPLIT, STATUS_CHANGE }
+public enum AuditEntityType { ORIGINAL_BOOK, TRANSLATED_BOOK, REDESIGN, USER, COLLECTION, AUTHOR, PUBLISHER, DESIGNER }
 ```
 
 
@@ -550,242 +567,246 @@ enum class AuditEntityType { ORIGINAL_BOOK, TRANSLATED_BOOK, REDESIGN, USER, COL
 
 #### 2.1 BookService
 
-```kotlin
-interface BookService {
+```java
+public interface BookService {
     // 원서 관리
-    fun createOriginalBook(request: CreateOriginalBookRequest): OriginalBook
-    fun updateOriginalBook(id: UUID, request: UpdateOriginalBookRequest): OriginalBook
-    fun getOriginalBook(id: UUID): OriginalBook?
-    fun deleteOriginalBook(id: UUID)
+    OriginalBook createOriginalBook(CreateOriginalBookRequest request);
+    OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request);
+    Optional<OriginalBook> getOriginalBook(UUID id);
+    void deleteOriginalBook(UUID id);
 
     // 번역서 관리
-    fun createTranslatedBook(originalBookId: UUID, request: CreateTranslatedBookRequest): TranslatedBook
-    fun updateTranslatedBook(id: UUID, request: UpdateTranslatedBookRequest): TranslatedBook
-    fun getTranslatedBook(id: UUID): TranslatedBook?
-    fun deleteTranslatedBook(id: UUID)
+    TranslatedBook createTranslatedBook(UUID originalBookId, CreateTranslatedBookRequest request);
+    TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request);
+    Optional<TranslatedBook> getTranslatedBook(UUID id);
+    void deleteTranslatedBook(UUID id);
 
     // 조회
-    fun getTranslationsByOriginalBook(originalBookId: UUID): List<TranslatedBook>
-    fun getBooksByAuthor(authorId: UUID, pageable: Pageable): Page<Media>
-    fun getBooksByPublisher(publisherId: UUID, pageable: Pageable): Page<Media>
-    fun getBooksByDesigner(designerId: UUID, pageable: Pageable): Page<Media>
+    List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId);
+    Page<Media> getBooksByAuthor(UUID authorId, Pageable pageable);
+    Page<Media> getBooksByPublisher(UUID publisherId, Pageable pageable);
+    Page<Media> getBooksByDesigner(UUID designerId, Pageable pageable);
 
     // 중복 검사
-    fun findDuplicatesByIsbn(isbn: String): List<Media>
-    fun findSimilarBooks(title: String, authorName: String, year: Int): List<Media>
+    List<Media> findDuplicatesByIsbn(String isbn);
+    List<Media> findSimilarBooks(String title, String authorName, int year);
 }
 ```
 
 #### 2.2 RedesignService
 
-```kotlin
-interface RedesignService {
-    fun createRedesign(request: CreateRedesignRequest): Redesign
-    fun updateRedesign(id: UUID, request: UpdateRedesignRequest): Redesign
-    fun getRedesign(id: UUID): Redesign?
-    fun deleteRedesign(id: UUID)
+```java
+public interface RedesignService {
+    Redesign createRedesign(CreateRedesignRequest request);
+    Redesign updateRedesign(UUID id, UpdateRedesignRequest request);
+    Optional<Redesign> getRedesign(UUID id);
+    void deleteRedesign(UUID id);
 
-    fun getRedesignsByOriginalBook(originalBookId: UUID, pageable: Pageable): Page<Redesign>
-    fun getRedesignsByTranslatedBook(translatedBookId: UUID, pageable: Pageable): Page<Redesign>
-    fun getRedesignsByUser(userId: UUID, pageable: Pageable): Page<Redesign>
+    Page<Redesign> getRedesignsByOriginalBook(UUID originalBookId, Pageable pageable);
+    Page<Redesign> getRedesignsByTranslatedBook(UUID translatedBookId, Pageable pageable);
+    Page<Redesign> getRedesignsByUser(UUID userId, Pageable pageable);
 }
 ```
 
 #### 2.3 SocialService
 
-```kotlin
-interface SocialService {
+```java
+public interface SocialService {
     // 좋아요
-    fun toggleLike(userId: UUID, targetType: LikeTargetType, targetId: UUID): Boolean
-    fun getLikeCount(targetType: LikeTargetType, targetId: UUID): Int
-    fun isLikedByUser(userId: UUID, targetType: LikeTargetType, targetId: UUID): Boolean
+    boolean toggleLike(UUID userId, LikeTargetType targetType, UUID targetId);
+    int getLikeCount(LikeTargetType targetType, UUID targetId);
+    boolean isLikedByUser(UUID userId, LikeTargetType targetType, UUID targetId);
 
     // 댓글
-    fun createComment(request: CreateCommentRequest): Comment
-    fun updateComment(id: UUID, content: String): Comment
-    fun deleteComment(id: UUID)
-    fun getComments(targetType: CommentTargetType, targetId: UUID, pageable: Pageable): Page<Comment>
+    Comment createComment(CreateCommentRequest request);
+    Comment updateComment(UUID id, String content);
+    void deleteComment(UUID id);
+    Page<Comment> getComments(CommentTargetType targetType, UUID targetId, Pageable pageable);
 }
 ```
 
 #### 2.4 CollectionService
 
-```kotlin
-interface CollectionService {
-    fun createCollection(request: CreateCollectionRequest): Collection
-    fun updateCollection(id: UUID, request: UpdateCollectionRequest): Collection
-    fun deleteCollection(id: UUID)
-    fun getCollection(id: UUID): Collection?
-    fun getCollectionByShareToken(token: String): Collection?
+```java
+public interface CollectionService {
+    Collection createCollection(CreateCollectionRequest request);
+    Collection updateCollection(UUID id, UpdateCollectionRequest request);
+    void deleteCollection(UUID id);
+    Optional<Collection> getCollection(UUID id);
+    Optional<Collection> getCollectionByShareToken(String token);
 
-    fun addItem(collectionId: UUID, itemType: CollectionItemType, itemId: UUID)
-    fun removeItem(collectionId: UUID, itemId: UUID)
+    void addItem(UUID collectionId, CollectionItemType itemType, UUID itemId);
+    void removeItem(UUID collectionId, UUID itemId);
 
-    fun getUserCollections(userId: UUID, pageable: Pageable): Page<Collection>
-    fun getPublicCollections(pageable: Pageable): Page<Collection>
-    fun duplicateCollection(collectionId: UUID, newOwnerId: UUID): Collection
+    Page<Collection> getUserCollections(UUID userId, Pageable pageable);
+    Page<Collection> getPublicCollections(Pageable pageable);
+    Collection duplicateCollection(UUID collectionId, UUID newOwnerId);
 }
 ```
 
 #### 2.5 SearchService
 
-```kotlin
-interface SearchService {
-    fun search(query: String, filters: SearchFilters, pageable: Pageable): SearchResult
-    fun browseByCountry(countryCode: String, pageable: Pageable): Page<Media>
-    fun browseByYear(year: Int, pageable: Pageable): Page<Media>
-    fun browseByGenre(genre: String, pageable: Pageable): Page<Media>
-    fun browseByTag(tagId: UUID, pageable: Pageable): Page<BookCover>
+```java
+public interface SearchService {
+    SearchResult search(String query, SearchFilters filters, Pageable pageable);
+    Page<Media> browseByCountry(String countryCode, Pageable pageable);
+    Page<Media> browseByYear(int year, Pageable pageable);
+    Page<Media> browseByGenre(String genre, Pageable pageable);
+    Page<BookCover> browseByTag(UUID tagId, Pageable pageable);
 
-    fun reindexAll()
-    fun indexBook(bookId: UUID)
-    fun removeFromIndex(bookId: UUID)
+    void reindexAll();
+    void indexBook(UUID bookId);
+    void removeFromIndex(UUID bookId);
 }
 
-data class SearchFilters(
-    val countryCode: String? = null,
-    val languageCode: String? = null,
-    val yearFrom: Int? = null,
-    val yearTo: Int? = null,
-    val genre: String? = null,
-    val publisherId: UUID? = null,
-    val tags: List<UUID>? = null,
-    val sortBy: SortOption = SortOption.RELEVANCE
-)
+public record SearchFilters(
+    String countryCode,
+    String languageCode,
+    Integer yearFrom,
+    Integer yearTo,
+    String genre,
+    UUID publisherId,
+    List<UUID> tags,
+    SortOption sortBy
+) {
+    public SearchFilters {
+        if (sortBy == null) sortBy = SortOption.RELEVANCE;
+    }
+}
 
-enum class SortOption { RELEVANCE, LIKES, NEWEST, YEAR_ASC, YEAR_DESC }
+public enum SortOption { RELEVANCE, LIKES, NEWEST, YEAR_ASC, YEAR_DESC }
 ```
 
 #### 2.6 ModerationService
 
-```kotlin
-interface ModerationService {
+```java
+public interface ModerationService {
     // 신고 관리
-    fun createReport(request: CreateReportRequest): Report
-    fun getReportQueue(pageable: Pageable): Page<Report>
-    fun reviewReport(reportId: UUID, decision: ReportDecision, note: String?)
+    Report createReport(CreateReportRequest request);
+    Page<Report> getReportQueue(Pageable pageable);
+    void reviewReport(UUID reportId, ReportDecision decision, String note);
 
     // 콘텐츠 관리
-    fun hideContent(targetType: ReportTargetType, targetId: UUID, reason: String)
-    fun restoreContent(targetType: ReportTargetType, targetId: UUID)
-    fun deleteContent(targetType: ReportTargetType, targetId: UUID, reason: String)
+    void hideContent(ReportTargetType targetType, UUID targetId, String reason);
+    void restoreContent(ReportTargetType targetType, UUID targetId);
+    void deleteContent(ReportTargetType targetType, UUID targetId, String reason);
 
     // 사용자 관리
-    fun suspendUser(userId: UUID, duration: Duration, reason: String)
-    fun restrictReporting(userId: UUID)
+    void suspendUser(UUID userId, Duration duration, String reason);
+    void restrictReporting(UUID userId);
 
     // 중복 관리
-    fun getDuplicateSuggestions(pageable: Pageable): Page<DuplicateSuggestion>
-    fun mergeEntities(sourceId: UUID, targetId: UUID, entityType: AuditEntityType)
+    Page<DuplicateSuggestion> getDuplicateSuggestions(Pageable pageable);
+    void mergeEntities(UUID sourceId, UUID targetId, AuditEntityType entityType);
 }
 
-data class ReportDecision(
-    val status: ReportStatus,
-    val action: ModerationAction?
-)
+public record ReportDecision(
+    ReportStatus status,
+    ModerationAction action
+) {}
 
-enum class ModerationAction { HIDE, DELETE, WARN_USER, SUSPEND_USER }
+public enum ModerationAction { HIDE, DELETE, WARN_USER, SUSPEND_USER }
 ```
 
 #### 2.7 ImageService
 
-```kotlin
-interface ImageService {
-    fun uploadImage(file: MultipartFile, type: ImageType): ImageUploadResult
-    fun validateImage(file: MultipartFile): ImageValidationResult
-    fun generateThumbnail(imageUrl: String): String
-    fun extractDominantColor(imageUrl: String): String
-    fun deleteImage(imageUrl: String)
+```java
+public interface ImageService {
+    ImageUploadResult uploadImage(MultipartFile file, ImageType type);
+    ImageValidationResult validateImage(MultipartFile file);
+    String generateThumbnail(String imageUrl);
+    String extractDominantColor(String imageUrl);
+    void deleteImage(String imageUrl);
 }
 
-data class ImageUploadResult(
-    val originalUrl: String,
-    val thumbnailUrl: String,
-    val width: Int,
-    val height: Int,
-    val fileSize: Long
-)
+public record ImageUploadResult(
+    String originalUrl,
+    String thumbnailUrl,
+    int width,
+    int height,
+    long fileSize
+) {}
 
-data class ImageValidationResult(
-    val valid: Boolean,
-    val errors: List<String>
-)
+public record ImageValidationResult(
+    boolean valid,
+    List<String> errors
+) {}
 
-enum class ImageType { COVER, REDESIGN, PROFILE }
+public enum ImageType { COVER, REDESIGN, PROFILE }
 ```
 
 #### 2.8 RateLimitService
 
-```kotlin
-interface RateLimitService {
-    fun checkLimit(userId: UUID, action: RateLimitAction): RateLimitResult
-    fun recordAction(userId: UUID, action: RateLimitAction)
-    fun isUserRestricted(userId: UUID): Boolean
+```java
+public interface RateLimitService {
+    RateLimitResult checkLimit(UUID userId, RateLimitAction action);
+    void recordAction(UUID userId, RateLimitAction action);
+    boolean isUserRestricted(UUID userId);
 }
 
-enum class RateLimitAction {
+public enum RateLimitAction {
     UPLOAD, COMMENT, LIKE, REPORT
 }
 
-data class RateLimitResult(
-    val allowed: Boolean,
-    val remainingAttempts: Int,
-    val resetTime: Instant?
-)
+public record RateLimitResult(
+    boolean allowed,
+    int remainingAttempts,
+    Instant resetTime
+) {}
 ```
 
 ## Data Models
 
 ### API Request/Response DTOs
 
-```kotlin
+```java
 // 원서 등록 요청
-data class CreateOriginalBookRequest(
-    val title: String,
-    val originalTitle: String,
-    val countryCode: String,
-    val languageCode: String,
-    val year: Int,
-    val genre: String,
-    val isbn: String?,
-    val authorId: UUID?,
-    val authorName: String?,
-    val publisherId: UUID?,
-    val publisherName: String?,
-    val designerId: UUID?,
-    val designerName: String?,
-    val edition: String?,
-    val frontCover: MultipartFile,
-    val backCover: MultipartFile?,
-    val imageSource: ImageSource?,
-    val sourceUrl: String?
-)
+public record CreateOriginalBookRequest(
+    String title,
+    String originalTitle,
+    String countryCode,
+    String languageCode,
+    int year,
+    String genre,
+    String isbn,
+    UUID authorId,
+    String authorName,
+    UUID publisherId,
+    String publisherName,
+    UUID designerId,
+    String designerName,
+    String edition,
+    MultipartFile frontCover,
+    MultipartFile backCover,
+    ImageSource imageSource,
+    String sourceUrl
+) {}
 
 // 검색 결과
-data class SearchResult(
-    val items: List<SearchResultItem>,
-    val totalCount: Long,
-    val facets: SearchFacets
-)
+public record SearchResult(
+    List<SearchResultItem> items,
+    long totalCount,
+    SearchFacets facets
+) {}
 
-data class SearchResultItem(
-    val id: UUID,
-    val type: MediaType,
-    val title: String,
-    val thumbnailUrl: String,
-    val author: String,
-    val publisher: String,
-    val year: Int,
-    val countryCode: String,
-    val likeCount: Int
-)
+public record SearchResultItem(
+    UUID id,
+    MediaType type,
+    String title,
+    String thumbnailUrl,
+    String author,
+    String publisher,
+    int year,
+    String countryCode,
+    int likeCount
+) {}
 
-data class SearchFacets(
-    val countries: Map<String, Long>,
-    val years: Map<Int, Long>,
-    val genres: Map<String, Long>,
-    val tags: Map<String, Long>
-)
+public record SearchFacets(
+    Map<String, Long> countries,
+    Map<Integer, Long> years,
+    Map<String, Long> genres,
+    Map<String, Long> tags
+) {}
 ```
 
 ### Elasticsearch 인덱스 매핑
@@ -933,13 +954,17 @@ data class SearchFacets(
 
 ### 에러 응답 형식
 
-```kotlin
-data class ErrorResponse(
-    val code: String,
-    val message: String,
-    val details: Map<String, Any>? = null,
-    val timestamp: Instant = Instant.now()
-)
+```java
+public record ErrorResponse(
+    String code,
+    String message,
+    Map<String, Object> details,
+    Instant timestamp
+) {
+    public ErrorResponse(String code, String message, Map<String, Object> details) {
+        this(code, message, details, Instant.now());
+    }
+}
 ```
 
 ### 에러 코드 체계
@@ -960,158 +985,46 @@ data class ErrorResponse(
 
 ### 예외 처리 전략
 
-```kotlin
+```java
 @RestControllerAdvice
-class GlobalExceptionHandler {
+public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ValidationException::class)
-    fun handleValidation(ex: ValidationException): ResponseEntity<ErrorResponse> {
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(ValidationException ex) {
         return ResponseEntity.badRequest().body(
-            ErrorResponse(
-                code = "VALIDATION_ERROR",
-                message = ex.message ?: "Validation failed",
-                details = ex.errors
+            new ErrorResponse(
+                "VALIDATION_ERROR",
+                ex.getMessage() != null ? ex.getMessage() : "Validation failed",
+                ex.getErrors()
             )
-        )
+        );
     }
 
-    @ExceptionHandler(DuplicateIsbnException::class)
-    fun handleDuplicateIsbn(ex: DuplicateIsbnException): ResponseEntity<ErrorResponse> {
+    @ExceptionHandler(DuplicateIsbnException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateIsbn(DuplicateIsbnException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
-            ErrorResponse(
-                code = "DUPLICATE_ISBN",
-                message = "ISBN already exists",
-                details = mapOf("existingBookId" to ex.existingBookId)
+            new ErrorResponse(
+                "DUPLICATE_ISBN",
+                "ISBN already exists",
+                Map.of("existingBookId", ex.getExistingBookId())
             )
-        )
+        );
     }
 
-    @ExceptionHandler(RateLimitExceededException::class)
-    fun handleRateLimit(ex: RateLimitExceededException): ResponseEntity<ErrorResponse> {
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-            .header("Retry-After", ex.retryAfterSeconds.toString())
+            .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
             .body(
-                ErrorResponse(
-                    code = "RATE_LIMITED",
-                    message = "Too many requests",
-                    details = mapOf(
-                        "retryAfter" to ex.retryAfterSeconds,
-                        "limit" to ex.limit
+                new ErrorResponse(
+                    "RATE_LIMITED",
+                    "Too many requests",
+                    Map.of(
+                        "retryAfter", ex.getRetryAfterSeconds(),
+                        "limit", ex.getLimit()
                     )
                 )
-            )
+            );
     }
 }
 ```
-
-## Testing Strategy
-
-### 테스트 유형
-
-1. **단위 테스트 (Unit Tests)**
-   - 개별 서비스 로직 검증
-   - 도메인 모델 검증
-   - 유틸리티 함수 검증
-
-2. **속성 기반 테스트 (Property-Based Tests)**
-   - 모든 Correctness Properties 검증
-   - 최소 100회 반복 실행
-   - Kotest Property Testing 라이브러리 사용
-
-3. **통합 테스트 (Integration Tests)**
-   - API 엔드포인트 검증
-   - 데이터베이스 연동 검증
-   - 외부 서비스 연동 검증
-
-### 속성 기반 테스트 설정
-
-```kotlin
-// build.gradle.kts
-dependencies {
-    testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
-    testImplementation("io.kotest:kotest-property:5.8.0")
-    testImplementation("io.kotest:kotest-assertions-core:5.8.0")
-}
-```
-
-### 테스트 예시
-
-```kotlin
-class BookServicePropertyTest : FunSpec({
-
-    // Feature: book-cover-archive, Property 1: 원서 등록 입력 검증
-    test("원서 등록 시 필수 항목 검증") {
-        checkAll(100, Arb.createOriginalBookRequest()) { request ->
-            val missingFields = findMissingRequiredFields(request)
-
-            if (missingFields.isEmpty()) {
-                // 모든 필수 항목이 있으면 성공
-                val result = bookService.createOriginalBook(request)
-                result.shouldNotBeNull()
-            } else {
-                // 필수 항목이 누락되면 실패
-                shouldThrow<ValidationException> {
-                    bookService.createOriginalBook(request)
-                }
-            }
-        }
-    }
-
-    // Feature: book-cover-archive, Property 2: ISBN 형식 검증
-    test("ISBN 형식 검증") {
-        checkAll(100, Arb.string(10..13)) { isbn ->
-            val isValid = isValidIsbn(isbn)
-            val result = isbnValidator.validate(isbn)
-
-            result.isValid shouldBe isValid
-        }
-    }
-
-    // Feature: book-cover-archive, Property 5: 좋아요 토글
-    test("좋아요 두 번 누르면 원래 상태로 복원") {
-        checkAll(100, Arb.uuid(), Arb.uuid()) { userId, coverId ->
-            val initialCount = socialService.getLikeCount(LikeTargetType.ORIGINAL_COVER, coverId)
-            val initialLiked = socialService.isLikedByUser(userId, LikeTargetType.ORIGINAL_COVER, coverId)
-
-            // 첫 번째 토글
-            socialService.toggleLike(userId, LikeTargetType.ORIGINAL_COVER, coverId)
-            // 두 번째 토글
-            socialService.toggleLike(userId, LikeTargetType.ORIGINAL_COVER, coverId)
-
-            val finalCount = socialService.getLikeCount(LikeTargetType.ORIGINAL_COVER, coverId)
-            val finalLiked = socialService.isLikedByUser(userId, LikeTargetType.ORIGINAL_COVER, coverId)
-
-            finalCount shouldBe initialCount
-            finalLiked shouldBe initialLiked
-        }
-    }
-
-    // Feature: book-cover-archive, Property 6: 공백 댓글 거부
-    test("공백만 있는 댓글은 거부") {
-        checkAll(100, Arb.whitespaceString()) { whitespaceContent ->
-            shouldThrow<ValidationException> {
-                socialService.createComment(
-                    CreateCommentRequest(
-                        content = whitespaceContent,
-                        targetType = CommentTargetType.ORIGINAL_COVER,
-                        targetId = UUID.randomUUID()
-                    )
-                )
-            }
-        }
-    }
-})
-
-// 커스텀 Arbitrary 생성기
-fun Arb.Companion.whitespaceString(): Arb<String> = arbitrary {
-    val whitespaceChars = listOf(' ', '\t', '\n', '\r')
-    val length = Arb.int(0..100).bind()
-    (0 until length).map { whitespaceChars.random() }.joinToString("")
-}
-```
-
-### 테스트 커버리지 목표
-
-- 단위 테스트: 80% 이상 라인 커버리지
-- 속성 기반 테스트: 모든 Correctness Properties 커버
-- 통합 테스트: 모든 API 엔드포인트 커버
