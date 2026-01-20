@@ -220,20 +220,20 @@
     - 태그 목록, 태그별 브라우징 API
     - _Requirements: 20.3, 20.6_
 
-- [ ] 18. 관리자 API 구현
-  - [ ] 18.1 AdminReportController 구현
+- [x] 18. 관리자 API 구현
+  - [x] 18.1 AdminReportController 구현
     - 신고 큐 조회, 처리 API
     - _Requirements: 19.2_
-  - [ ] 18.2 AdminModerationController 구현
+  - [x] 18.2 AdminModerationController 구현
     - 콘텐츠 관리, 사용자 정지 API
     - _Requirements: 15.5, 18.6_
-  - [ ] 18.3 AdminEntityController 구현
+  - [x] 18.3 AdminEntityController 구현
     - 엔티티 병합, 별칭 관리 API
     - _Requirements: 19.5, 19.6_
-  - [ ] 18.4 AdminDashboardController 구현
+  - [x] 18.4 AdminDashboardController 구현
     - 통계, 로그 조회 API
     - _Requirements: 19.7, 19.8, 19.9_
-  - [ ] 18.5 AdminTakedownController 구현
+  - [x] 18.5 AdminTakedownController 구현
     - 저작권 삭제 요청 처리 API
     - _Requirements: 19.4_
 
