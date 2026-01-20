@@ -9,11 +9,23 @@ public class ResourceNotFoundException extends RuntimeException {
 
     private final String resourceType;
     private final UUID resourceId;
+    private final String fieldName;
+    private final String fieldValue;
 
     public ResourceNotFoundException(String resourceType, UUID resourceId) {
         super(resourceType + " not found with id: " + resourceId);
         this.resourceType = resourceType;
         this.resourceId = resourceId;
+        this.fieldName = "id";
+        this.fieldValue = resourceId != null ? resourceId.toString() : null;
+    }
+
+    public ResourceNotFoundException(String resourceType, String fieldName, String fieldValue) {
+        super(resourceType + " not found with " + fieldName + ": " + fieldValue);
+        this.resourceType = resourceType;
+        this.resourceId = null;
+        this.fieldName = fieldName;
+        this.fieldValue = fieldValue;
     }
 
     public String getResourceType() {
@@ -22,5 +34,13 @@ public class ResourceNotFoundException extends RuntimeException {
 
     public UUID getResourceId() {
         return resourceId;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public String getFieldValue() {
+        return fieldValue;
     }
 }

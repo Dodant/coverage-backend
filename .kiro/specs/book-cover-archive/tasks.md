@@ -192,17 +192,17 @@
     - 커버 이미지 업로드, 조회
     - _Requirements: 14.1, 14.8_
 
-- [ ] 16. API 컨트롤러 구현 - 소셜/검색
-  - [ ] 16.1 LikeController 구현
+- [x] 16. API 컨트롤러 구현 - 소셜/검색
+  - [x] 16.1 LikeController 구현
     - 좋아요 토글 API
     - _Requirements: 4.1, 4.2_
-  - [ ] 16.2 CommentController 구현
+  - [x] 16.2 CommentController 구현
     - 댓글 CRUD API
     - _Requirements: 5.1, 5.4_
-  - [ ] 16.3 CollectionController 구현
+  - [x] 16.3 CollectionController 구현
     - 컬렉션 CRUD, 공유 API
     - _Requirements: 11.1, 11.9, 11.11_
-  - [ ] 16.4 SearchController 구현
+  - [x] 16.4 SearchController 구현
     - 검색, 필터링, 브라우징 API
     - _Requirements: 8.1, 8.5, 8.6, 8.7_
 
