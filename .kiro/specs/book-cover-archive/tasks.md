@@ -59,17 +59,17 @@
     - 공개/비공개, 공유 토큰 포함
     - _Requirements: 11.1, 11.9, 11.10_
 
-- [ ] 5. 도메인 모델 구현 - 관리 기능
-  - [ ] 5.1 DesignTag 엔티티 구현
+- [x] 5. 도메인 모델 구현 - 관리 기능
+  - [x] 5.1 DesignTag 엔티티 구현
     - 카테고리, 승인 상태 포함
     - _Requirements: 20.1, 20.4_
-  - [ ] 5.2 Report 엔티티 구현
+  - [x] 5.2 Report 엔티티 구현
     - 신고 사유, 처리 상태 포함
     - _Requirements: 15.2, 15.3_
-  - [ ] 5.3 AuditLog 엔티티 구현
+  - [x] 5.3 AuditLog 엔티티 구현
     - 변경 전/후 값 JSON 저장
     - _Requirements: 16.1, 16.6_
-  - [ ] 5.4 TakedownRequest 엔티티 구현
+  - [x] 5.4 TakedownRequest 엔티티 구현
     - 저작권 삭제 요청
     - _Requirements: 17.1, 17.2_
 
