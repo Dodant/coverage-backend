@@ -281,13 +281,21 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public Optional<OriginalBook> getOriginalBook(UUID id) {
-        return originalBookRepository.findById(id);
+        // 문제 16 해결: 삭제된 콘텐츠는 조회하지 않음
+        return originalBookRepository.findById(id)
+                .filter(book -> book.getStatus() != ContentStatus.DELETED);
     }
 
     @Override
     public void deleteOriginalBook(UUID id) {
         OriginalBook book = originalBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", id));
+
+        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
+        if (book.getStatus() == ContentStatus.DELETED) {
+            return;
+        }
+
         book.setStatus(ContentStatus.DELETED);
         book.setUpdatedAt(Instant.now());
         originalBookRepository.save(book);
@@ -311,6 +319,12 @@ public class BookServiceImpl implements BookService {
     public TranslatedBook createTranslatedBook(UUID originalBookId, CreateTranslatedBookRequest request) {
         OriginalBook originalBook = originalBookRepository.findById(originalBookId)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", originalBookId));
+
+        // 문제 17 해결: 삭제된 원서에는 번역서를 연결할 수 없음
+        if (originalBook.getStatus() == ContentStatus.DELETED) {
+            throw new ValidationException("Cannot create translation for deleted original book",
+                    Map.of("originalBookId", originalBookId, "status", originalBook.getStatus().name()));
+        }
 
         // ISBN 검증 및 중복 검사
         if (request.isbn() != null && !request.isbn().isBlank()) {
@@ -503,13 +517,21 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public Optional<TranslatedBook> getTranslatedBook(UUID id) {
-        return translatedBookRepository.findById(id);
+        // 문제 16 해결: 삭제된 콘텐츠는 조회하지 않음
+        return translatedBookRepository.findById(id)
+                .filter(book -> book.getStatus() != ContentStatus.DELETED);
     }
 
     @Override
     public void deleteTranslatedBook(UUID id) {
         TranslatedBook book = translatedBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", id));
+
+        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
+        if (book.getStatus() == ContentStatus.DELETED) {
+            return;
+        }
+
         book.setStatus(ContentStatus.DELETED);
         book.setUpdatedAt(Instant.now());
         translatedBookRepository.save(book);

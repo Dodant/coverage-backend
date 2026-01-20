@@ -83,6 +83,11 @@ public class RedesignServiceImpl implements RedesignService {
         if (request.originalBookId() != null) {
             OriginalBook originalBook = originalBookRepository.findById(request.originalBookId())
                     .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", request.originalBookId()));
+            // 문제 17 해결: 삭제된 원서에는 리디자인을 연결할 수 없음
+            if (originalBook.getStatus() == ContentStatus.DELETED) {
+                throw new ValidationException("Cannot create redesign for deleted original book",
+                        Map.of("originalBookId", request.originalBookId(), "status", originalBook.getStatus().name()));
+            }
             redesign.setOriginalBook(originalBook);
         }
 
@@ -90,6 +95,11 @@ public class RedesignServiceImpl implements RedesignService {
         if (request.translatedBookId() != null) {
             TranslatedBook translatedBook = translatedBookRepository.findById(request.translatedBookId())
                     .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", request.translatedBookId()));
+            // 문제 17 해결: 삭제된 번역서에는 리디자인을 연결할 수 없음
+            if (translatedBook.getStatus() == ContentStatus.DELETED) {
+                throw new ValidationException("Cannot create redesign for deleted translated book",
+                        Map.of("translatedBookId", request.translatedBookId(), "status", translatedBook.getStatus().name()));
+            }
             redesign.setTranslatedBook(translatedBook);
         }
 
@@ -145,13 +155,21 @@ public class RedesignServiceImpl implements RedesignService {
     @Override
     @Transactional(readOnly = true)
     public Optional<Redesign> getRedesign(UUID id) {
-        return redesignRepository.findById(id);
+        // 문제 16 해결: 삭제된 콘텐츠는 조회하지 않음
+        return redesignRepository.findById(id)
+                .filter(redesign -> redesign.getStatus() != ContentStatus.DELETED);
     }
 
     @Override
     public void deleteRedesign(UUID id) {
         Redesign redesign = redesignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Redesign", id));
+
+        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
+        if (redesign.getStatus() == ContentStatus.DELETED) {
+            return;
+        }
+
         redesign.setStatus(ContentStatus.DELETED);
         redesign.setUpdatedAt(Instant.now());
         redesignRepository.save(redesign);
