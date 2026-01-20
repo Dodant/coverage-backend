@@ -12,6 +12,9 @@ import com.bookcover.archive.domain.contributor.Publisher;
 import com.bookcover.archive.domain.contributor.Translator;
 import com.bookcover.archive.domain.media.Media;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
+import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.exception.DuplicateIsbnException;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
@@ -60,6 +63,7 @@ public class BookServiceImpl implements BookService {
     private final BookSearchRepository bookSearchRepository;
     private final IsbnValidator isbnValidator;
     private final ContributionService contributionService;
+    private final EventPublisher eventPublisher;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -72,7 +76,8 @@ public class BookServiceImpl implements BookService {
             UserRepository userRepository,
             BookSearchRepository bookSearchRepository,
             IsbnValidator isbnValidator,
-            ContributionService contributionService) {
+            ContributionService contributionService,
+            EventPublisher eventPublisher) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -84,6 +89,7 @@ public class BookServiceImpl implements BookService {
         this.bookSearchRepository = bookSearchRepository;
         this.isbnValidator = isbnValidator;
         this.contributionService = contributionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -185,6 +191,13 @@ public class BookServiceImpl implements BookService {
             contributionService.incrementContribution(request.createdById());
         }
 
+        // 콘텐츠 생성 이벤트 발행
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.ORIGINAL_BOOK_CREATED,
+                savedBook.getId(),
+                request.createdById()
+        ));
+
         return savedBook;
     }
 
@@ -252,7 +265,17 @@ public class BookServiceImpl implements BookService {
         }
 
         book.setUpdatedAt(Instant.now());
-        return originalBookRepository.save(book);
+        OriginalBook savedBook = originalBookRepository.save(book);
+
+        // 콘텐츠 수정 이벤트 발행
+        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.ORIGINAL_BOOK_UPDATED,
+                savedBook.getId(),
+                userId
+        ));
+
+        return savedBook;
     }
 
     @Override
@@ -268,6 +291,14 @@ public class BookServiceImpl implements BookService {
         book.setStatus(ContentStatus.DELETED);
         book.setUpdatedAt(Instant.now());
         originalBookRepository.save(book);
+
+        // 콘텐츠 삭제 이벤트 발행
+        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.ORIGINAL_BOOK_DELETED,
+                id,
+                userId
+        ));
     }
 
 
@@ -379,6 +410,13 @@ public class BookServiceImpl implements BookService {
             contributionService.incrementContribution(request.createdById());
         }
 
+        // 콘텐츠 생성 이벤트 발행
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.TRANSLATED_BOOK_CREATED,
+                savedBook.getId(),
+                request.createdById()
+        ));
+
         return savedBook;
     }
 
@@ -444,7 +482,17 @@ public class BookServiceImpl implements BookService {
         }
 
         book.setUpdatedAt(Instant.now());
-        return translatedBookRepository.save(book);
+        TranslatedBook savedBook = translatedBookRepository.save(book);
+
+        // 콘텐츠 수정 이벤트 발행
+        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.TRANSLATED_BOOK_UPDATED,
+                savedBook.getId(),
+                userId
+        ));
+
+        return savedBook;
     }
 
     @Override
@@ -460,6 +508,14 @@ public class BookServiceImpl implements BookService {
         book.setStatus(ContentStatus.DELETED);
         book.setUpdatedAt(Instant.now());
         translatedBookRepository.save(book);
+
+        // 콘텐츠 삭제 이벤트 발행
+        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.TRANSLATED_BOOK_DELETED,
+                id,
+                userId
+        ));
     }
 
     @Override

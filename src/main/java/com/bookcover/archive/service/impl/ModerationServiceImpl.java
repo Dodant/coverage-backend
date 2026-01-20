@@ -11,6 +11,9 @@ import com.bookcover.archive.domain.report.ReportTargetType;
 import com.bookcover.archive.domain.social.Comment;
 import com.bookcover.archive.domain.user.User;
 import com.bookcover.archive.domain.user.UserStatus;
+import com.bookcover.archive.event.EventPublisher;
+import com.bookcover.archive.event.ModerationEvent;
+import com.bookcover.archive.event.ModerationEventType;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.CommentRepository;
@@ -48,6 +51,7 @@ public class ModerationServiceImpl implements ModerationService {
     private final TranslatedBookRepository translatedBookRepository;
     private final RedesignRepository redesignRepository;
     private final CommentRepository commentRepository;
+    private final EventPublisher eventPublisher;
 
     public ModerationServiceImpl(
             ReportRepository reportRepository,
@@ -55,13 +59,15 @@ public class ModerationServiceImpl implements ModerationService {
             OriginalBookRepository originalBookRepository,
             TranslatedBookRepository translatedBookRepository,
             RedesignRepository redesignRepository,
-            CommentRepository commentRepository) {
+            CommentRepository commentRepository,
+            EventPublisher eventPublisher) {
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.redesignRepository = redesignRepository;
         this.commentRepository = commentRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -96,10 +102,28 @@ public class ModerationServiceImpl implements ModerationService {
 
         Report savedReport = reportRepository.save(report);
 
+        // 신고 이벤트 발행
+        eventPublisher.publishModerationEvent(new ModerationEvent(
+                ModerationEventType.CONTENT_REPORTED,
+                targetType,
+                targetId,
+                reporterId,
+                reason.name()
+        ));
+
         // 자동 비공개 처리 확인 (3회 이상 신고)
         long reportCount = reportRepository.countByTargetTypeAndTargetId(targetType, targetId);
         if (reportCount >= AUTO_HIDE_THRESHOLD) {
             hideContent(targetType, targetId, "Auto-hidden due to multiple reports");
+
+            // 자동 비공개 이벤트 발행
+            eventPublisher.publishModerationEvent(new ModerationEvent(
+                    ModerationEventType.CONTENT_AUTO_HIDDEN,
+                    targetType,
+                    targetId,
+                    null,
+                    "Auto-hidden due to " + reportCount + " reports"
+            ));
         }
 
         return savedReport;

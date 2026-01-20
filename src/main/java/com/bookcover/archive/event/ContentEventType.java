@@ -1,0 +1,16 @@
+package com.bookcover.archive.event;
+
+/**
+ * 콘텐츠 이벤트 유형.
+ */
+public enum ContentEventType {
+    ORIGINAL_BOOK_CREATED,
+    ORIGINAL_BOOK_UPDATED,
+    ORIGINAL_BOOK_DELETED,
+    TRANSLATED_BOOK_CREATED,
+    TRANSLATED_BOOK_UPDATED,
+    TRANSLATED_BOOK_DELETED,
+    REDESIGN_CREATED,
+    REDESIGN_UPDATED,
+    REDESIGN_DELETED
+}

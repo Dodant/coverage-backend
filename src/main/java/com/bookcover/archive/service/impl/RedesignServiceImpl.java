@@ -5,6 +5,9 @@ import com.bookcover.archive.domain.book.Redesign;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
+import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.OriginalBookRepository;
@@ -43,18 +46,21 @@ public class RedesignServiceImpl implements RedesignService {
     private final TranslatedBookRepository translatedBookRepository;
     private final UserRepository userRepository;
     private final ContributionService contributionService;
+    private final EventPublisher eventPublisher;
 
     public RedesignServiceImpl(
             RedesignRepository redesignRepository,
             OriginalBookRepository originalBookRepository,
             TranslatedBookRepository translatedBookRepository,
             UserRepository userRepository,
-            ContributionService contributionService) {
+            ContributionService contributionService,
+            EventPublisher eventPublisher) {
         this.redesignRepository = redesignRepository;
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.userRepository = userRepository;
         this.contributionService = contributionService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -97,6 +103,13 @@ public class RedesignServiceImpl implements RedesignService {
         // 기여 횟수 증가 및 칭호 업데이트
         contributionService.incrementContribution(request.createdById());
 
+        // 콘텐츠 생성 이벤트 발행
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.REDESIGN_CREATED,
+                savedRedesign.getId(),
+                request.createdById()
+        ));
+
         return savedRedesign;
     }
 
@@ -116,7 +129,17 @@ public class RedesignServiceImpl implements RedesignService {
         }
 
         redesign.setUpdatedAt(Instant.now());
-        return redesignRepository.save(redesign);
+        Redesign savedRedesign = redesignRepository.save(redesign);
+
+        // 콘텐츠 수정 이벤트 발행
+        UUID userId = redesign.getCreatedBy() != null ? redesign.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.REDESIGN_UPDATED,
+                savedRedesign.getId(),
+                userId
+        ));
+
+        return savedRedesign;
     }
 
     @Override
@@ -132,6 +155,14 @@ public class RedesignServiceImpl implements RedesignService {
         redesign.setStatus(ContentStatus.DELETED);
         redesign.setUpdatedAt(Instant.now());
         redesignRepository.save(redesign);
+
+        // 콘텐츠 삭제 이벤트 발행
+        UUID userId = redesign.getCreatedBy() != null ? redesign.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                ContentEventType.REDESIGN_DELETED,
+                id,
+                userId
+        ));
     }
 
     @Override
