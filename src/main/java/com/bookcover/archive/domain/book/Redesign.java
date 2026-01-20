@@ -12,6 +12,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -215,5 +217,17 @@ public class Redesign {
      */
     public boolean hasBookReference() {
         return originalBook != null || translatedBook != null;
+    }
+
+    /**
+     * 문제 3 해결: 저장 전 원서 또는 번역서 연결 검증
+     * Redesign은 반드시 OriginalBook 또는 TranslatedBook 중 하나와 연결되어야 합니다.
+     */
+    @PrePersist
+    @PreUpdate
+    private void validateBookReference() {
+        if (originalBook == null && translatedBook == null) {
+            throw new IllegalStateException("Redesign must be linked to either an OriginalBook or a TranslatedBook");
+        }
     }
 }

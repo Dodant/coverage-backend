@@ -34,9 +34,11 @@ public class Collection {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    // 문제 11 해결: 컨트롤러와 일치하도록 길이 제한 추가
+    @Column(nullable = false, length = 100)
     private String name;
 
+    @Column(length = 500)
     private String description;
 
     @Enumerated(EnumType.STRING)

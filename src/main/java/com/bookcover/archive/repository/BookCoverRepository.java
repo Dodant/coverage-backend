@@ -6,6 +6,9 @@ import com.bookcover.archive.domain.book.CoverType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -60,4 +63,44 @@ public interface BookCoverRepository extends JpaRepository<BookCover, UUID> {
      * @return 북커버 목록
      */
     List<BookCover> findByImageUrl(String imageUrl);
+
+    /**
+     * 좋아요 수를 1 증가시킵니다 (단일 UPDATE 쿼리).
+     *
+     * @param id 북커버 ID
+     * @return 업데이트된 행 수
+     */
+    @Modifying
+    @Query("UPDATE BookCover b SET b.likeCount = b.likeCount + 1 WHERE b.id = :id")
+    int incrementLikeCount(@Param("id") UUID id);
+
+    /**
+     * 좋아요 수를 1 감소시킵니다 (단일 UPDATE 쿼리, 0 미만 방지).
+     *
+     * @param id 북커버 ID
+     * @return 업데이트된 행 수
+     */
+    @Modifying
+    @Query("UPDATE BookCover b SET b.likeCount = b.likeCount - 1 WHERE b.id = :id AND b.likeCount > 0")
+    int decrementLikeCount(@Param("id") UUID id);
+
+    /**
+     * 댓글 수를 1 증가시킵니다 (단일 UPDATE 쿼리).
+     *
+     * @param id 북커버 ID
+     * @return 업데이트된 행 수
+     */
+    @Modifying
+    @Query("UPDATE BookCover b SET b.commentCount = b.commentCount + 1 WHERE b.id = :id")
+    int incrementCommentCount(@Param("id") UUID id);
+
+    /**
+     * 댓글 수를 1 감소시킵니다 (단일 UPDATE 쿼리, 0 미만 방지).
+     *
+     * @param id 북커버 ID
+     * @return 업데이트된 행 수
+     */
+    @Modifying
+    @Query("UPDATE BookCover b SET b.commentCount = b.commentCount - 1 WHERE b.id = :id AND b.commentCount > 0")
+    int decrementCommentCount(@Param("id") UUID id);
 }

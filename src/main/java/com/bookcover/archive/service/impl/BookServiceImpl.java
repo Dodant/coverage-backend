@@ -292,8 +292,13 @@ public class BookServiceImpl implements BookService {
         book.setUpdatedAt(Instant.now());
         originalBookRepository.save(book);
 
-        // 콘텐츠 삭제 이벤트 발행
+        // 문제 7 해결: 기여 카운트 감소
         UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        if (userId != null) {
+            contributionService.decrementContribution(userId);
+        }
+
+        // 콘텐츠 삭제 이벤트 발행
         eventPublisher.publishContentEvent(new ContentEvent(
                 ContentEventType.ORIGINAL_BOOK_DELETED,
                 id,
@@ -509,8 +514,13 @@ public class BookServiceImpl implements BookService {
         book.setUpdatedAt(Instant.now());
         translatedBookRepository.save(book);
 
-        // 콘텐츠 삭제 이벤트 발행
+        // 문제 7 해결: 기여 카운트 감소
         UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        if (userId != null) {
+            contributionService.decrementContribution(userId);
+        }
+
+        // 콘텐츠 삭제 이벤트 발행
         eventPublisher.publishContentEvent(new ContentEvent(
                 ContentEventType.TRANSLATED_BOOK_DELETED,
                 id,

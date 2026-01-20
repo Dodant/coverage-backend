@@ -102,6 +102,12 @@ public class TakedownServiceImpl implements TakedownService {
         User reviewer = userRepository.findById(reviewerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", reviewerId));
 
+        // 문제 9 해결: 리뷰어가 ADMIN인지 확인
+        if (reviewer.getRole() != com.bookcover.archive.domain.user.UserRole.ADMIN) {
+            throw new ValidationException("Only administrators can approve takedown requests",
+                    Map.of("userId", reviewerId, "role", reviewer.getRole().name()));
+        }
+
         // 이미 처리된 요청인지 확인
         if (request.getStatus() != TakedownStatus.PENDING) {
             throw new ValidationException("Request has already been processed",
@@ -120,6 +126,12 @@ public class TakedownServiceImpl implements TakedownService {
 
         User reviewer = userRepository.findById(reviewerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", reviewerId));
+
+        // 문제 9 해결: 리뷰어가 ADMIN인지 확인
+        if (reviewer.getRole() != com.bookcover.archive.domain.user.UserRole.ADMIN) {
+            throw new ValidationException("Only administrators can reject takedown requests",
+                    Map.of("userId", reviewerId, "role", reviewer.getRole().name()));
+        }
 
         // 이미 처리된 요청인지 확인
         if (request.getStatus() != TakedownStatus.PENDING) {

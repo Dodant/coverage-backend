@@ -48,10 +48,14 @@ public class ContributionServiceImpl implements ContributionService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        user.setContributionCount(user.getContributionCount() + 1);
-        checkAndUpdateTitle(user);
+        // 문제 4 해결: 원자적 UPDATE 쿼리로 동시성 문제 방지
+        userRepository.incrementContributionCount(userId);
 
-        return userRepository.save(user);
+        // 칭호 업데이트 (CONTRIBUTOR 임계값 도달 시)
+        userRepository.updateTitleIfEligible(userId, CONTRIBUTOR_THRESHOLD, UserTitle.CONTRIBUTOR);
+
+        // 최신 상태 반환
+        return userRepository.findById(userId).orElse(user);
     }
 
     @Override
@@ -59,11 +63,11 @@ public class ContributionServiceImpl implements ContributionService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
-        if (user.getContributionCount() > 0) {
-            user.setContributionCount(user.getContributionCount() - 1);
-        }
+        // 문제 4 해결: 원자적 UPDATE 쿼리로 동시성 문제 방지
+        userRepository.decrementContributionCount(userId);
 
-        return userRepository.save(user);
+        // 최신 상태 반환
+        return userRepository.findById(userId).orElse(user);
     }
 
     @Override

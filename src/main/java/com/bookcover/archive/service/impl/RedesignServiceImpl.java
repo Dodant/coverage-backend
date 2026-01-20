@@ -156,8 +156,13 @@ public class RedesignServiceImpl implements RedesignService {
         redesign.setUpdatedAt(Instant.now());
         redesignRepository.save(redesign);
 
-        // 콘텐츠 삭제 이벤트 발행
+        // 문제 7 해결: 기여 카운트 감소
         UUID userId = redesign.getCreatedBy() != null ? redesign.getCreatedBy().getId() : null;
+        if (userId != null) {
+            contributionService.decrementContribution(userId);
+        }
+
+        // 콘텐츠 삭제 이벤트 발행
         eventPublisher.publishContentEvent(new ContentEvent(
                 ContentEventType.REDESIGN_DELETED,
                 id,

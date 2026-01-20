@@ -115,6 +115,10 @@ public class AuthServiceImpl implements AuthService {
                 if (user.getSuspendedUntil() != null && Instant.now().isBefore(user.getSuspendedUntil())) {
                     throw new ValidationException("Account suspended",
                             Map.of("account", "This account is suspended until " + user.getSuspendedUntil()));
+                } else {
+                    // 문제 12 해결: 정지 기간이 지났으면 자동으로 상태 복원
+                    user.setStatus(UserStatus.ACTIVE);
+                    user.setSuspendedUntil(null);
                 }
             }
 

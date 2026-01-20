@@ -33,6 +33,8 @@ import java.util.UUID;
 @Transactional
 public class SocialServiceImpl implements SocialService {
 
+    private static final int MAX_COMMENT_LENGTH = 1000;
+
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
@@ -58,6 +60,9 @@ public class SocialServiceImpl implements SocialService {
     public boolean toggleLike(UUID userId, LikeTargetType targetType, UUID targetId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+
+        // 문제 10 해결: 대상 존재 여부 검증
+        validateLikeTargetExists(targetType, targetId);
 
         Optional<Like> existingLike = likeRepository.findByUserIdAndTargetTypeAndTargetId(
                 userId, targetType, targetId);
@@ -101,6 +106,9 @@ public class SocialServiceImpl implements SocialService {
 
         User author = userRepository.findById(request.authorId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.authorId()));
+
+        // 문제 10 해결: 대상 존재 여부 검증
+        validateCommentTargetExists(request.targetType(), request.targetId());
 
         Comment comment = new Comment();
         comment.setAuthor(author);
@@ -174,73 +182,61 @@ public class SocialServiceImpl implements SocialService {
             throw new ValidationException("Comment content cannot be empty or blank",
                     Map.of("content", content != null ? content : "null"));
         }
+        // 문제 6 해결: 댓글 길이 검증 추가
+        if (content.length() > MAX_COMMENT_LENGTH) {
+            throw new ValidationException("Comment content exceeds maximum length of " + MAX_COMMENT_LENGTH + " characters",
+                    Map.of("contentLength", content.length(), "maxLength", MAX_COMMENT_LENGTH));
+        }
     }
 
+    // 문제 1 해결: 단일 UPDATE 쿼리로 변경
     private void incrementLikeCount(LikeTargetType targetType, UUID targetId) {
         switch (targetType) {
-            case ORIGINAL_COVER, TRANSLATED_COVER -> {
-                bookCoverRepository.findById(targetId).ifPresent(cover -> {
-                    cover.incrementLikeCount();
-                    bookCoverRepository.save(cover);
-                });
-            }
-            case REDESIGN -> {
-                redesignRepository.findById(targetId).ifPresent(redesign -> {
-                    redesign.incrementLikeCount();
-                    redesignRepository.save(redesign);
-                });
-            }
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.incrementLikeCount(targetId);
+            case REDESIGN -> redesignRepository.incrementLikeCount(targetId);
         }
     }
 
     private void decrementLikeCount(LikeTargetType targetType, UUID targetId) {
         switch (targetType) {
-            case ORIGINAL_COVER, TRANSLATED_COVER -> {
-                bookCoverRepository.findById(targetId).ifPresent(cover -> {
-                    cover.decrementLikeCount();
-                    bookCoverRepository.save(cover);
-                });
-            }
-            case REDESIGN -> {
-                redesignRepository.findById(targetId).ifPresent(redesign -> {
-                    redesign.decrementLikeCount();
-                    redesignRepository.save(redesign);
-                });
-            }
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.decrementLikeCount(targetId);
+            case REDESIGN -> redesignRepository.decrementLikeCount(targetId);
         }
     }
 
     private void incrementCommentCount(CommentTargetType targetType, UUID targetId) {
         switch (targetType) {
-            case ORIGINAL_COVER, TRANSLATED_COVER -> {
-                bookCoverRepository.findById(targetId).ifPresent(cover -> {
-                    cover.incrementCommentCount();
-                    bookCoverRepository.save(cover);
-                });
-            }
-            case REDESIGN -> {
-                redesignRepository.findById(targetId).ifPresent(redesign -> {
-                    redesign.incrementCommentCount();
-                    redesignRepository.save(redesign);
-                });
-            }
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.incrementCommentCount(targetId);
+            case REDESIGN -> redesignRepository.incrementCommentCount(targetId);
         }
     }
 
     private void decrementCommentCount(CommentTargetType targetType, UUID targetId) {
         switch (targetType) {
-            case ORIGINAL_COVER, TRANSLATED_COVER -> {
-                bookCoverRepository.findById(targetId).ifPresent(cover -> {
-                    cover.decrementCommentCount();
-                    bookCoverRepository.save(cover);
-                });
-            }
-            case REDESIGN -> {
-                redesignRepository.findById(targetId).ifPresent(redesign -> {
-                    redesign.decrementCommentCount();
-                    redesignRepository.save(redesign);
-                });
-            }
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.decrementCommentCount(targetId);
+            case REDESIGN -> redesignRepository.decrementCommentCount(targetId);
+        }
+    }
+
+    // 문제 10 해결: 좋아요 대상 존재 여부 검증
+    private void validateLikeTargetExists(LikeTargetType targetType, UUID targetId) {
+        boolean exists = switch (targetType) {
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.existsById(targetId);
+            case REDESIGN -> redesignRepository.existsById(targetId);
+        };
+        if (!exists) {
+            throw new ResourceNotFoundException(targetType.name(), targetId);
+        }
+    }
+
+    // 문제 10 해결: 댓글 대상 존재 여부 검증
+    private void validateCommentTargetExists(CommentTargetType targetType, UUID targetId) {
+        boolean exists = switch (targetType) {
+            case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.existsById(targetId);
+            case REDESIGN -> redesignRepository.existsById(targetId);
+        };
+        if (!exists) {
+            throw new ResourceNotFoundException(targetType.name(), targetId);
         }
     }
 }

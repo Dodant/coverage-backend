@@ -31,6 +31,9 @@ import java.util.UUID;
 @Transactional
 public class CollectionServiceImpl implements CollectionService {
 
+    private static final int MAX_COLLECTION_NAME_LENGTH = 100;
+    private static final int MAX_COLLECTION_DESCRIPTION_LENGTH = 500;
+
     private final CollectionRepository collectionRepository;
     private final CollectionItemRepository collectionItemRepository;
     private final UserRepository userRepository;
@@ -47,10 +50,9 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     public Collection createCollection(CreateCollectionRequest request) {
         // 이름 검증
-        if (request.name() == null || request.name().isBlank()) {
-            throw new ValidationException("Collection name cannot be empty",
-                    Map.of("name", request.name() != null ? request.name() : "null"));
-        }
+        validateCollectionName(request.name());
+        // 설명 길이 검증
+        validateCollectionDescription(request.description());
 
         User owner = userRepository.findById(request.ownerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.ownerId()));
@@ -76,14 +78,12 @@ public class CollectionServiceImpl implements CollectionService {
         validateOwnership(collection, userId);
 
         if (request.name() != null) {
-            if (request.name().isBlank()) {
-                throw new ValidationException("Collection name cannot be empty",
-                        Map.of("name", request.name()));
-            }
+            validateCollectionName(request.name());
             collection.setName(request.name());
         }
 
         if (request.description() != null) {
+            validateCollectionDescription(request.description());
             collection.setDescription(request.description());
         }
 
@@ -220,6 +220,26 @@ public class CollectionServiceImpl implements CollectionService {
         if (!collection.getOwner().getId().equals(userId)) {
             throw new ValidationException("Only the owner can modify this collection",
                     Map.of("collectionId", collection.getId(), "userId", userId));
+        }
+    }
+
+    // 문제 13 해결: 컬렉션 이름 검증
+    private void validateCollectionName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new ValidationException("Collection name cannot be empty",
+                    Map.of("name", name != null ? name : "null"));
+        }
+        if (name.length() > MAX_COLLECTION_NAME_LENGTH) {
+            throw new ValidationException("Collection name exceeds maximum length of " + MAX_COLLECTION_NAME_LENGTH + " characters",
+                    Map.of("nameLength", name.length(), "maxLength", MAX_COLLECTION_NAME_LENGTH));
+        }
+    }
+
+    // 문제 13 해결: 컬렉션 설명 검증
+    private void validateCollectionDescription(String description) {
+        if (description != null && description.length() > MAX_COLLECTION_DESCRIPTION_LENGTH) {
+            throw new ValidationException("Collection description exceeds maximum length of " + MAX_COLLECTION_DESCRIPTION_LENGTH + " characters",
+                    Map.of("descriptionLength", description.length(), "maxLength", MAX_COLLECTION_DESCRIPTION_LENGTH));
         }
     }
 }

@@ -82,6 +82,12 @@ public class ModerationServiceImpl implements ModerationService {
                     Map.of("userId", reporterId));
         }
 
+        // 문제 8 해결: 정지된 사용자 검증 추가
+        if (reporter.getStatus() == UserStatus.SUSPENDED) {
+            throw new ValidationException("Suspended users cannot create reports",
+                    Map.of("userId", reporterId, "status", reporter.getStatus().name()));
+        }
+
         // 중복 신고 확인
         if (reportRepository.existsByReporterIdAndTargetTypeAndTargetId(reporterId, targetType, targetId)) {
             throw new ValidationException("User has already reported this content",
@@ -142,6 +148,12 @@ public class ModerationServiceImpl implements ModerationService {
 
         User reviewer = userRepository.findById(reviewerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", reviewerId));
+
+        // 문제 5 해결: 리뷰어가 ADMIN인지 확인
+        if (reviewer.getRole() != com.bookcover.archive.domain.user.UserRole.ADMIN) {
+            throw new ValidationException("Only administrators can review reports",
+                    Map.of("userId", reviewerId, "role", reviewer.getRole().name()));
+        }
 
         report.review(reviewer, status, note);
 
