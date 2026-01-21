@@ -61,7 +61,14 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
      * @param pageable 페이징 정보
      * @return 번역서 페이지
      */
-    Page<TranslatedBook> findByAuthorId(UUID authorId, Pageable pageable);
+    @Query(value = "SELECT tb FROM TranslatedBook tb " +
+        "LEFT JOIN FETCH tb.author " +
+        "LEFT JOIN FETCH tb.translator " +
+        "LEFT JOIN FETCH tb.publisher " +
+        "LEFT JOIN FETCH tb.designer " +
+        "WHERE tb.author.id = :authorId",
+        countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.author.id = :authorId")
+    Page<TranslatedBook> findByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
 
     /**
      * 번역가 ID로 번역서 목록을 조회합니다.
@@ -70,7 +77,14 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
      * @param pageable 페이징 정보
      * @return 번역서 페이지
      */
-    Page<TranslatedBook> findByTranslatorId(UUID translatorId, Pageable pageable);
+    @Query(value = "SELECT tb FROM TranslatedBook tb " +
+        "LEFT JOIN FETCH tb.author " +
+        "LEFT JOIN FETCH tb.translator " +
+        "LEFT JOIN FETCH tb.publisher " +
+        "LEFT JOIN FETCH tb.designer " +
+        "WHERE tb.translator.id = :translatorId",
+        countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.translator.id = :translatorId")
+    Page<TranslatedBook> findByTranslatorId(@Param("translatorId") UUID translatorId, Pageable pageable);
 
     /**
      * 출판사 ID로 번역서 목록을 조회합니다.
@@ -79,7 +93,14 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
      * @param pageable 페이징 정보
      * @return 번역서 페이지
      */
-    Page<TranslatedBook> findByPublisherId(UUID publisherId, Pageable pageable);
+    @Query(value = "SELECT tb FROM TranslatedBook tb " +
+        "LEFT JOIN FETCH tb.author " +
+        "LEFT JOIN FETCH tb.translator " +
+        "LEFT JOIN FETCH tb.publisher " +
+        "LEFT JOIN FETCH tb.designer " +
+        "WHERE tb.publisher.id = :publisherId",
+        countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.publisher.id = :publisherId")
+    Page<TranslatedBook> findByPublisherId(@Param("publisherId") UUID publisherId, Pageable pageable);
 
     /**
      * 디자이너 ID로 번역서 목록을 조회합니다.
@@ -88,7 +109,14 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
      * @param pageable 페이징 정보
      * @return 번역서 페이지
      */
-    Page<TranslatedBook> findByDesignerId(UUID designerId, Pageable pageable);
+    @Query(value = "SELECT tb FROM TranslatedBook tb " +
+        "LEFT JOIN FETCH tb.author " +
+        "LEFT JOIN FETCH tb.translator " +
+        "LEFT JOIN FETCH tb.publisher " +
+        "LEFT JOIN FETCH tb.designer " +
+        "WHERE tb.designer.id = :designerId",
+        countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.designer.id = :designerId")
+    Page<TranslatedBook> findByDesignerId(@Param("designerId") UUID designerId, Pageable pageable);
 
     /**
      * 국가 코드로 번역서 목록을 조회합니다.
