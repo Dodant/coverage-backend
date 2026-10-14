@@ -46,6 +46,7 @@ s, _, b = call("POST", "/books/original", {
     "year": 2020, "genre": "novel", "isbn": isbn13(), "authorName": "작가", "publisherName": "출판사",
     "frontCover": {"imageUrl": "http://localhost:9000/b/a.jpg", "thumbnailUrl": "http://localhost:9000/b/a_t.jpg",
                    "originalFileName": "a.jpg"}}, user())
+check("create test book -> 201", s == 201, (s, b[:200]))
 cover_id = json.loads(b)["frontCover"]["id"]
 
 # comments: 30/min
