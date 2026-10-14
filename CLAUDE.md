@@ -45,7 +45,7 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 
 ### 인증과 로그인 사용자 식별
 - `JwtAuthenticationFilter`가 `Authorization: Bearer` 토큰에서 이메일을 꺼내 `CustomUserDetails`를 principal로 설정. Stateless, CSRF off.
-- 토큰에 `typ` 클레임(access/refresh)이 있어 서로 대신 쓸 수 없다. 필터는 매 요청 DB에서 사용자를 다시 읽고 ACTIVE가 아니면(정지·탈퇴) 비로그인으로 처리한다.
+- 토큰에 `typ`(access/refresh, 서로 대신 못 씀)과 `uid`(사용자 ID) 클레임이 있다. subject(이메일)만 믿으면 탈퇴 후 같은 이메일로 재가입한 계정에 옛 토큰이 통하므로 필터·갱신은 `JwtTokenProvider.isIssuedTo`로 ID 일치를 확인한다. 필터는 매 요청 DB에서 사용자를 다시 읽고 ACTIVE가 아니면(정지·탈퇴) 비로그인으로 처리한다.
 - 리프레시 토큰은 1회용: 갱신·로그아웃 시 jti를 Redis `revoked_refresh:{jti}`(남은 유효기간 TTL)에 넣는다. 액세스 토큰은 폐기 수단이 없어 만료(24h)까지 유효하다.
 - 탈퇴는 익명화(이메일을 `deleted-{id}@deleted.invalid`로 교체, 프로필 삭제, status=DELETED). 책·수정 이력·댓글은 남는다.
 - **principal은 `CustomUserDetails`(String/UUID 아님).** 사용자 ID는 다음 두 가지로만 얻는다:

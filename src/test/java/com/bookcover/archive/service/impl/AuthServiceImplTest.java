@@ -32,6 +32,8 @@ import static org.mockito.Mockito.when;
 /** 토큰 종류 분리와 리프레시 토큰 1회용·로그아웃 폐기를 확인한다. */
 class AuthServiceImplTest {
 
+    private static final UUID UID = UUID.randomUUID();
+
     private final JwtTokenProvider jwt = new JwtTokenProvider(props());
     private final UserRepository userRepository = mock(UserRepository.class);
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
@@ -48,9 +50,9 @@ class AuthServiceImplTest {
         return p;
     }
 
-    private void activeUser(String email) {
+    private void activeUser(String email, UUID id) {
         User user = new User();
-        user.setId(UUID.randomUUID());
+        user.setId(id);
         user.setEmail(email);
         user.setRole(UserRole.MEMBER);
         user.setStatus(UserStatus.ACTIVE);
@@ -59,8 +61,8 @@ class AuthServiceImplTest {
 
     @Test
     void 액세스와_리프레시는_서로_대신_쓸_수_없다() {
-        String access = jwt.generateAccessToken("a@b.c");
-        String refresh = jwt.generateRefreshToken("a@b.c");
+        String access = jwt.generateAccessToken("a@b.c", UID);
+        String refresh = jwt.generateRefreshToken("a@b.c", UID);
 
         assertNotNull(jwt.parse(access, JwtTokenProvider.ACCESS));
         assertNull(jwt.parse(access, JwtTokenProvider.REFRESH));
@@ -70,9 +72,9 @@ class AuthServiceImplTest {
 
     @Test
     void 리프레시는_처음_한번만_성공한다() {
-        activeUser("a@b.c");
+        activeUser("a@b.c", UID);
         when(redis.opsForValue()).thenReturn(ops);
-        String refresh = jwt.generateRefreshToken("a@b.c");
+        String refresh = jwt.generateRefreshToken("a@b.c", UID);
 
         when(ops.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         assertNotNull(service.refreshToken(new TokenRefreshRequest(refresh)));
@@ -84,7 +86,7 @@ class AuthServiceImplTest {
 
     @Test
     void 액세스_토큰으로는_갱신할_수_없다() {
-        String access = jwt.generateAccessToken("a@b.c");
+        String access = jwt.generateAccessToken("a@b.c", UID);
 
         assertThrows(ValidationException.class, () -> service.refreshToken(new TokenRefreshRequest(access)));
         verifyNoInteractions(redis);
@@ -93,7 +95,7 @@ class AuthServiceImplTest {
     @Test
     void 로그아웃은_리프레시_jti를_폐기한다() {
         when(redis.opsForValue()).thenReturn(ops);
-        String refresh = jwt.generateRefreshToken("a@b.c");
+        String refresh = jwt.generateRefreshToken("a@b.c", UID);
         String jti = jwt.parse(refresh, JwtTokenProvider.REFRESH).getId();
 
         service.logout(refresh);
@@ -105,5 +107,15 @@ class AuthServiceImplTest {
     void 잘못된_토큰으로_로그아웃해도_오류가_없다() {
         service.logout("garbage");
         verifyNoInteractions(redis);
+    }
+
+    @Test
+    void 탈퇴_후_같은_이메일로_재가입한_계정에는_옛_리프레시가_통하지_않는다() {
+        String oldRefresh = jwt.generateRefreshToken("a@b.c", UID);
+        activeUser("a@b.c", UUID.randomUUID()); // 같은 이메일, 다른 계정
+        when(redis.opsForValue()).thenReturn(ops);
+        when(ops.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
+        assertThrows(ValidationException.class, () -> service.refreshToken(new TokenRefreshRequest(oldRefresh)));
     }
 }

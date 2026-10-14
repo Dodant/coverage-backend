@@ -51,6 +51,7 @@ check("logout with garbage token -> 204", s == 204, s)
 
 _, l = call("POST", "/auth/login", {"email": email, "password": pw})
 access, refresh, uid = l["accessToken"], l["refreshToken"], l["user"]["id"]
+refresh2_after_withdraw = call("POST", "/auth/login", {"email": email, "password": pw})[1]["refreshToken"]
 s, _ = call("DELETE", "/users/me", {"password": "wrong-password"}, access)
 check("withdraw with wrong password -> 400", s == 400, s)
 s, _ = call("DELETE", "/users/me", {"password": pw}, access)
@@ -63,6 +64,10 @@ s, _ = call("POST", "/auth/login", {"email": email, "password": pw})
 check("login after withdraw fails", s in (400, 401), s)
 s, a2 = call("POST", "/auth/signup", {"email": email, "password": pw, "displayName": "again", "role": "MEMBER"})
 check("same email can sign up again -> 201", s == 201, s)
+s, _ = call("GET", "/users/me", None, access)
+check("old access token does not work on the re-registered account -> 401", s == 401, s)
+s, _ = call("POST", "/auth/refresh", {"refreshToken": refresh2_after_withdraw})
+check("old refresh token does not work on the re-registered account -> 400", s == 400, s)
 s, p = call("GET", f"/users/{uid}", None, a2["accessToken"])
 check("withdrawn profile is anonymized", s == 200 and p["displayName"] == "탈퇴한 회원" and not p.get("websiteUrl"), (s, p))
 print("ALL PASS")

@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -45,10 +44,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             Claims claims = StringUtils.hasText(jwt) ? jwtTokenProvider.parse(jwt, JwtTokenProvider.ACCESS) : null;
-            UserDetails userDetails = claims != null ? userDetailsService.loadUserByUsername(claims.getSubject()) : null;
+            CustomUserDetails userDetails = claims != null
+                    ? (CustomUserDetails) userDetailsService.loadUserByUsername(claims.getSubject()) : null;
 
-            // 정지·탈퇴 계정은 발급된 토큰이 남아 있어도 즉시 비로그인으로 처리
-            if (userDetails != null && userDetails.isEnabled()) {
+            // 정지·탈퇴 계정, 같은 이메일로 재가입한 다른 계정에는 발급된 토큰이 남아 있어도 비로그인으로 처리
+            if (userDetails != null && userDetails.isEnabled()
+                    && JwtTokenProvider.isIssuedTo(claims, userDetails.getId())) {
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());

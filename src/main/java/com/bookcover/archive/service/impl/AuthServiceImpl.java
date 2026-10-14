@@ -18,7 +18,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -97,8 +96,8 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // 토큰 생성
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getId());
 
         return createAuthResponse(user, accessToken, refreshToken);
     }
@@ -107,7 +106,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
 
@@ -135,8 +134,8 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(user);
 
             // 토큰 생성
-            String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getId());
+            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getId());
 
             return createAuthResponse(user, accessToken, refreshToken);
         } catch (BadCredentialsException e) {
@@ -158,14 +157,19 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ValidationException("User not found", Map.of("user", "User not found")));
 
+        // 탈퇴 후 같은 이메일로 재가입한 계정이면 옛 토큰을 거부
+        if (!JwtTokenProvider.isIssuedTo(claims, user.getId())) {
+            throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
+        }
+
         // 계정 상태 확인
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ValidationException("Account not active", Map.of("account", "Account is not active"));
         }
 
         // 새 토큰 생성
-        String newAccessToken = jwtTokenProvider.generateAccessToken(email);
-        String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
+        String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getId());
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(email, user.getId());
 
         return createAuthResponse(user, newAccessToken, newRefreshToken);
     }

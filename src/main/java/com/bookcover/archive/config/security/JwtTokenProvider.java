@@ -9,8 +9,6 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -28,6 +26,7 @@ public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
     private static final String TYPE_CLAIM = "typ";
+    private static final String USER_ID_CLAIM = "uid";
     public static final String ACCESS = "access";
     public static final String REFRESH = "refresh";
 
@@ -40,23 +39,16 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 인증 정보로부터 액세스 토큰을 생성합니다.
-     */
-    public String generateAccessToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateAccessToken(userDetails.getUsername());
-    }
-
-    /**
      * 사용자 이메일로 액세스 토큰을 생성합니다.
      */
-    public String generateAccessToken(String email) {
+    public String generateAccessToken(String email, UUID userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getExpiration());
 
         return Jwts.builder()
                 .subject(email)
                 .claim(TYPE_CLAIM, ACCESS)
+                .claim(USER_ID_CLAIM, userId.toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -66,13 +58,14 @@ public class JwtTokenProvider {
     /**
      * 리프레시 토큰을 생성합니다.
      */
-    public String generateRefreshToken(String email) {
+    public String generateRefreshToken(String email, UUID userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getRefreshExpiration());
 
         return Jwts.builder()
                 .subject(email)
                 .claim(TYPE_CLAIM, REFRESH)
+                .claim(USER_ID_CLAIM, userId.toString())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -106,5 +99,13 @@ public class JwtTokenProvider {
             logger.error("JWT claims string is empty");
         }
         return null;
+    }
+
+    /**
+     * 토큰이 이 사용자에게 발급된 것인지 확인합니다.
+     * subject(이메일)만 믿으면 탈퇴 후 같은 이메일로 재가입한 새 계정에 옛 토큰이 통한다.
+     */
+    public static boolean isIssuedTo(Claims claims, UUID userId) {
+        return userId.toString().equals(claims.get(USER_ID_CLAIM, String.class));
     }
 }
