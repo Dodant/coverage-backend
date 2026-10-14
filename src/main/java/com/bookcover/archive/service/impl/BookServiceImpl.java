@@ -122,11 +122,7 @@ public class BookServiceImpl implements BookService {
     public OriginalBook createOriginalBook(CreateOriginalBookRequest request) {
         // ISBN 검증 및 중복 검사
         if (request.isbn() != null && !request.isbn().isBlank()) {
-            String normalizedIsbn = isbnValidator.normalizeIsbn(request.isbn());
-            if (!isbnValidator.isValid(normalizedIsbn)) {
-                throw new ValidationException("Invalid ISBN format", Map.of("isbn", request.isbn()));
-            }
-            checkIsbnDuplicate(normalizedIsbn);
+            validateNewIsbn(isbnValidator.normalizeIsbn(request.isbn()), request.isbn());
         }
 
         OriginalBook book = new OriginalBook();
@@ -141,35 +137,11 @@ public class BookServiceImpl implements BookService {
         book.setStatus(ContentStatus.PUBLISHED);
 
         // 작가 연결
-        if (request.authorId() != null) {
-            Author author = authorRepository.findById(request.authorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Author", request.authorId()));
-            book.setAuthor(author);
-        } else if (request.authorName() != null && !request.authorName().isBlank()) {
-            Author author = authorRepository.findByName(request.authorName())
-                    .orElseGet(() -> {
-                        Author newAuthor = new Author();
-                        newAuthor.setName(request.authorName());
-                        return authorRepository.save(newAuthor);
-                    });
-            book.setAuthor(author);
-        }
+        book.setAuthor(resolveAuthor(request.authorId(), request.authorName()));
 
 
         // 출판사 연결
-        if (request.publisherId() != null) {
-            Publisher publisher = publisherRepository.findById(request.publisherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Publisher", request.publisherId()));
-            book.setPublisher(publisher);
-        } else if (request.publisherName() != null && !request.publisherName().isBlank()) {
-            Publisher publisher = publisherRepository.findByName(request.publisherName())
-                    .orElseGet(() -> {
-                        Publisher newPublisher = new Publisher();
-                        newPublisher.setName(request.publisherName());
-                        return publisherRepository.save(newPublisher);
-                    });
-            book.setPublisher(publisher);
-        }
+        book.setPublisher(resolvePublisher(request.publisherId(), request.publisherName()));
 
         // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
         book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
@@ -229,10 +201,7 @@ public class BookServiceImpl implements BookService {
         if (request.isbn() != null) {
             String normalizedIsbn = isbnValidator.normalizeIsbn(request.isbn());
             if (!normalizedIsbn.equals(book.getIsbn())) {
-                if (!isbnValidator.isValid(normalizedIsbn)) {
-                    throw new ValidationException("Invalid ISBN format", Map.of("isbn", request.isbn()));
-                }
-                checkIsbnDuplicate(normalizedIsbn);
+                validateNewIsbn(normalizedIsbn, request.isbn());
                 book.setIsbn(normalizedIsbn);
             }
         }
@@ -246,15 +215,11 @@ public class BookServiceImpl implements BookService {
         if (request.edition() != null) book.setEdition(request.edition());
 
         if (request.authorId() != null) {
-            Author author = authorRepository.findById(request.authorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Author", request.authorId()));
-            book.setAuthor(author);
+            book.setAuthor(resolveAuthor(request.authorId(), null));
         }
 
         if (request.publisherId() != null) {
-            Publisher publisher = publisherRepository.findById(request.publisherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Publisher", request.publisherId()));
-            book.setPublisher(publisher);
+            book.setPublisher(resolvePublisher(request.publisherId(), null));
         }
 
         if (request.seriesId() != null) {
@@ -285,12 +250,7 @@ public class BookServiceImpl implements BookService {
         OriginalBook savedBook = originalBookRepository.save(book);
 
         // 콘텐츠 수정 이벤트 발행
-        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
-        eventPublisher.publishContentEvent(new ContentEvent(
-                ContentEventType.ORIGINAL_BOOK_UPDATED,
-                savedBook.getId(),
-                userId
-        ));
+        publishBookUpdated(savedBook);
 
         logEdit(savedBook, before, editorId);
         return savedBook;
@@ -308,28 +268,7 @@ public class BookServiceImpl implements BookService {
     public void deleteOriginalBook(UUID id) {
         OriginalBook book = originalBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", id));
-
-        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
-        if (book.getStatus() == ContentStatus.DELETED) {
-            return;
-        }
-
-        book.setStatus(ContentStatus.DELETED);
-        book.setUpdatedAt(Instant.now());
-        originalBookRepository.save(book);
-
-        // 문제 7 해결: 기여 카운트 감소
-        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
-        if (userId != null) {
-            contributionService.decrementContribution(userId);
-        }
-
-        // 콘텐츠 삭제 이벤트 발행
-        eventPublisher.publishContentEvent(new ContentEvent(
-                ContentEventType.ORIGINAL_BOOK_DELETED,
-                id,
-                userId
-        ));
+        softDelete(book, ContentEventType.ORIGINAL_BOOK_DELETED);
     }
 
 
@@ -346,11 +285,7 @@ public class BookServiceImpl implements BookService {
 
         // ISBN 검증 및 중복 검사
         if (request.isbn() != null && !request.isbn().isBlank()) {
-            String normalizedIsbn = isbnValidator.normalizeIsbn(request.isbn());
-            if (!isbnValidator.isValid(normalizedIsbn)) {
-                throw new ValidationException("Invalid ISBN format", Map.of("isbn", request.isbn()));
-            }
-            checkIsbnDuplicate(normalizedIsbn);
+            validateNewIsbn(isbnValidator.normalizeIsbn(request.isbn()), request.isbn());
         }
 
         TranslatedBook book = new TranslatedBook();
@@ -364,49 +299,13 @@ public class BookServiceImpl implements BookService {
         book.setStatus(ContentStatus.PUBLISHED);
 
         // 작가 연결
-        if (request.authorId() != null) {
-            Author author = authorRepository.findById(request.authorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Author", request.authorId()));
-            book.setAuthor(author);
-        } else if (request.authorName() != null && !request.authorName().isBlank()) {
-            Author author = authorRepository.findByName(request.authorName())
-                    .orElseGet(() -> {
-                        Author newAuthor = new Author();
-                        newAuthor.setName(request.authorName());
-                        return authorRepository.save(newAuthor);
-                    });
-            book.setAuthor(author);
-        }
+        book.setAuthor(resolveAuthor(request.authorId(), request.authorName()));
 
         // 번역가 연결
-        if (request.translatorId() != null) {
-            Translator translator = translatorRepository.findById(request.translatorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Translator", request.translatorId()));
-            book.setTranslator(translator);
-        } else if (request.translatorName() != null && !request.translatorName().isBlank()) {
-            Translator translator = translatorRepository.findByName(request.translatorName())
-                    .orElseGet(() -> {
-                        Translator newTranslator = new Translator();
-                        newTranslator.setName(request.translatorName());
-                        return translatorRepository.save(newTranslator);
-                    });
-            book.setTranslator(translator);
-        }
+        book.setTranslator(resolveTranslator(request.translatorId(), request.translatorName()));
 
         // 출판사 연결
-        if (request.publisherId() != null) {
-            Publisher publisher = publisherRepository.findById(request.publisherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Publisher", request.publisherId()));
-            book.setPublisher(publisher);
-        } else if (request.publisherName() != null && !request.publisherName().isBlank()) {
-            Publisher publisher = publisherRepository.findByName(request.publisherName())
-                    .orElseGet(() -> {
-                        Publisher newPublisher = new Publisher();
-                        newPublisher.setName(request.publisherName());
-                        return publisherRepository.save(newPublisher);
-                    });
-            book.setPublisher(publisher);
-        }
+        book.setPublisher(resolvePublisher(request.publisherId(), request.publisherName()));
 
         // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
         book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
@@ -459,10 +358,7 @@ public class BookServiceImpl implements BookService {
         if (request.isbn() != null) {
             String normalizedIsbn = isbnValidator.normalizeIsbn(request.isbn());
             if (!normalizedIsbn.equals(book.getIsbn())) {
-                if (!isbnValidator.isValid(normalizedIsbn)) {
-                    throw new ValidationException("Invalid ISBN format", Map.of("isbn", request.isbn()));
-                }
-                checkIsbnDuplicate(normalizedIsbn);
+                validateNewIsbn(normalizedIsbn, request.isbn());
                 book.setIsbn(normalizedIsbn);
             }
         }
@@ -474,21 +370,15 @@ public class BookServiceImpl implements BookService {
         if (request.edition() != null) book.setEdition(request.edition());
 
         if (request.authorId() != null) {
-            Author author = authorRepository.findById(request.authorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Author", request.authorId()));
-            book.setAuthor(author);
+            book.setAuthor(resolveAuthor(request.authorId(), null));
         }
 
         if (request.translatorId() != null) {
-            Translator translator = translatorRepository.findById(request.translatorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Translator", request.translatorId()));
-            book.setTranslator(translator);
+            book.setTranslator(resolveTranslator(request.translatorId(), null));
         }
 
         if (request.publisherId() != null) {
-            Publisher publisher = publisherRepository.findById(request.publisherId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Publisher", request.publisherId()));
-            book.setPublisher(publisher);
+            book.setPublisher(resolvePublisher(request.publisherId(), null));
         }
 
         if (request.seriesId() != null) {
@@ -513,12 +403,7 @@ public class BookServiceImpl implements BookService {
         TranslatedBook savedBook = translatedBookRepository.save(book);
 
         // 콘텐츠 수정 이벤트 발행
-        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
-        eventPublisher.publishContentEvent(new ContentEvent(
-                ContentEventType.TRANSLATED_BOOK_UPDATED,
-                savedBook.getId(),
-                userId
-        ));
+        publishBookUpdated(savedBook);
 
         logEdit(savedBook, before, editorId);
         return savedBook;
@@ -536,28 +421,7 @@ public class BookServiceImpl implements BookService {
     public void deleteTranslatedBook(UUID id) {
         TranslatedBook book = translatedBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", id));
-
-        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
-        if (book.getStatus() == ContentStatus.DELETED) {
-            return;
-        }
-
-        book.setStatus(ContentStatus.DELETED);
-        book.setUpdatedAt(Instant.now());
-        translatedBookRepository.save(book);
-
-        // 문제 7 해결: 기여 카운트 감소
-        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
-        if (userId != null) {
-            contributionService.decrementContribution(userId);
-        }
-
-        // 콘텐츠 삭제 이벤트 발행
-        eventPublisher.publishContentEvent(new ContentEvent(
-                ContentEventType.TRANSLATED_BOOK_DELETED,
-                id,
-                userId
-        ));
+        softDelete(book, ContentEventType.TRANSLATED_BOOK_DELETED);
     }
 
     @Override
@@ -663,12 +527,32 @@ public class BookServiceImpl implements BookService {
     }
 
     private void publishBookUpdated(Media book) {
-        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
         eventPublisher.publishContentEvent(new ContentEvent(
                 book instanceof OriginalBook ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED,
                 book.getId(),
-                userId
+                creatorIdOf(book)
         ));
+    }
+
+    /** 삭제 상태로 바꾸고 등록자 기여 수를 줄인 뒤 삭제 이벤트를 발행한다. 영속 상태라 커밋 때 반영된다 */
+    private void softDelete(Media book, ContentEventType deletedEvent) {
+        // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
+        if (book.getStatus() == ContentStatus.DELETED) {
+            return;
+        }
+        book.setStatus(ContentStatus.DELETED);
+        book.setUpdatedAt(Instant.now());
+
+        // 문제 7 해결: 기여 카운트 감소
+        UUID userId = creatorIdOf(book);
+        if (userId != null) {
+            contributionService.decrementContribution(userId);
+        }
+        eventPublisher.publishContentEvent(new ContentEvent(deletedEvent, book.getId(), userId));
+    }
+
+    private static UUID creatorIdOf(Media book) {
+        return book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
     }
 
 
@@ -679,6 +563,14 @@ public class BookServiceImpl implements BookService {
                 .or(() -> translatedBookRepository.findById(id))
                 .filter(b -> b.getStatus() != ContentStatus.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Book", id));
+    }
+
+    /** 새로 저장할 ISBN(정규화된 값)의 형식과 중복을 검사한다. raw는 오류 응답에 담을 입력 원문 */
+    private void validateNewIsbn(String isbn, String raw) {
+        if (!isbnValidator.isValid(isbn)) {
+            throw new ValidationException("Invalid ISBN format", Map.of("isbn", raw));
+        }
+        checkIsbnDuplicate(isbn);
     }
 
     private void checkIsbnDuplicate(String isbn) {
@@ -910,6 +802,54 @@ public class BookServiceImpl implements BookService {
                     newDesigner.setName(name);
                     return designerRepository.save(newDesigner);
                 });
+    }
+
+    /** authorId가 있으면 그것을, 없으면 이름으로 찾거나 새로 만든다. 둘 다 없으면 null */
+    private Author resolveAuthor(UUID authorId, String authorName) {
+        if (authorId != null) {
+            return authorRepository.findById(authorId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Author", authorId));
+        }
+        if (authorName == null || authorName.isBlank()) {
+            return null;
+        }
+        return authorRepository.findByName(authorName).orElseGet(() -> {
+            Author author = new Author();
+            author.setName(authorName);
+            return authorRepository.save(author);
+        });
+    }
+
+    /** publisherId가 있으면 그것을, 없으면 이름으로 찾거나 새로 만든다. 둘 다 없으면 null */
+    private Publisher resolvePublisher(UUID publisherId, String publisherName) {
+        if (publisherId != null) {
+            return publisherRepository.findById(publisherId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Publisher", publisherId));
+        }
+        if (publisherName == null || publisherName.isBlank()) {
+            return null;
+        }
+        return publisherRepository.findByName(publisherName).orElseGet(() -> {
+            Publisher publisher = new Publisher();
+            publisher.setName(publisherName);
+            return publisherRepository.save(publisher);
+        });
+    }
+
+    /** translatorId가 있으면 그것을, 없으면 이름으로 찾거나 새로 만든다. 둘 다 없으면 null */
+    private Translator resolveTranslator(UUID translatorId, String translatorName) {
+        if (translatorId != null) {
+            return translatorRepository.findById(translatorId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Translator", translatorId));
+        }
+        if (translatorName == null || translatorName.isBlank()) {
+            return null;
+        }
+        return translatorRepository.findByName(translatorName).orElseGet(() -> {
+            Translator translator = new Translator();
+            translator.setName(translatorName);
+            return translatorRepository.save(translator);
+        });
     }
 
     /** seriesId가 있으면 그것을, 없으면 출판사 안에서 이름으로 찾거나 새로 만든다 */
