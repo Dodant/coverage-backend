@@ -147,4 +147,12 @@ check("delete translated -> 204", s == 204, s)
 s, page = call("GET", f"/designers/{ids[D1]}/covers")
 check("deleted book's cover excluded", all(c["book"]["type"] == "ORIGINAL" for c in page["content"]), page)
 
+# 11. 신고로 숨김(HIDDEN) 처리된 책의 표지·시리즈 항목도 공개 목록에서 빠짐
+subprocess.run(["docker", "exec", "bookcover-postgres", "psql", "-U", "bookcover", "-d", "bookcover", "-qc",
+                f"UPDATE media SET status='HIDDEN' WHERE id='{bid}';"], check=True, capture_output=True)
+s, page = call("GET", f"/designers/{ids[PHO]}/covers")
+check("hidden book's covers excluded", s == 200 and page["content"] == [], page)
+s, books = call("GET", f"/series/{series_id}/books")
+check("hidden book excluded from series", s == 200 and books == [], books)
+
 print("ALL PASS")

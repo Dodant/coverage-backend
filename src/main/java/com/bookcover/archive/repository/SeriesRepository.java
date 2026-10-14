@@ -25,7 +25,7 @@ public interface SeriesRepository extends JpaRepository<Series, UUID> {
 
     Page<Series> findByNameContainingIgnoreCase(String name, Pageable pageable);
 
-    /** 시리즈에 속한 원서·번역서 (삭제 제외). 권 번호는 문자열이라 정렬은 호출 쪽에서 한다 */
-    @Query("SELECT m FROM Media m WHERE m.series.id = :seriesId AND m.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED")
+    /** 시리즈에 속한 공개(PUBLISHED) 원서·번역서. 권 번호는 문자열이라 정렬은 호출 쪽에서 한다 */
+    @Query("SELECT m FROM Media m WHERE m.series.id = :seriesId AND m.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED")
     List<Media> findBooks(@Param("seriesId") UUID seriesId);
 }

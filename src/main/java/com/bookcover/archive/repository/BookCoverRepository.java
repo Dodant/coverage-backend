@@ -66,22 +66,22 @@ public interface BookCoverRepository extends JpaRepository<BookCover, UUID> {
     List<BookCover> findByImageUrl(String imageUrl);
 
     /**
-     * 디자이너가 크레딧에 오른 표지 목록 (앞면 변형·뒷면 모두, 삭제된 책의 표지 제외, 최근 등록순).
+     * 디자이너가 크레딧에 오른 표지 목록 (앞면 변형·뒷면 모두, 공개(PUBLISHED) 책의 표지만, 최근 등록순).
      * role이 null이면 역할 무관.
      */
     @Query(value = "SELECT c FROM BookCover c " +
         "WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.cover = c AND cr.designer.id = :designerId " +
         "AND (:role IS NULL OR cr.role = :role)) " +
-        "AND (EXISTS (SELECT 1 FROM Media m WHERE m.id = c.book.id AND m.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED) " +
-        "OR EXISTS (SELECT 1 FROM OriginalBook ob WHERE ob.backCover = c AND ob.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED) " +
-        "OR EXISTS (SELECT 1 FROM TranslatedBook tb WHERE tb.backCover = c AND tb.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED))" +
+        "AND (EXISTS (SELECT 1 FROM Media m WHERE m.id = c.book.id AND m.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED) " +
+        "OR EXISTS (SELECT 1 FROM OriginalBook ob WHERE ob.backCover = c AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED) " +
+        "OR EXISTS (SELECT 1 FROM TranslatedBook tb WHERE tb.backCover = c AND tb.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED))" +
         " ORDER BY c.createdAt DESC",
         countQuery = "SELECT count(c) FROM BookCover c " +
         "WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.cover = c AND cr.designer.id = :designerId " +
         "AND (:role IS NULL OR cr.role = :role)) " +
-        "AND (EXISTS (SELECT 1 FROM Media m WHERE m.id = c.book.id AND m.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED) " +
-        "OR EXISTS (SELECT 1 FROM OriginalBook ob WHERE ob.backCover = c AND ob.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED) " +
-        "OR EXISTS (SELECT 1 FROM TranslatedBook tb WHERE tb.backCover = c AND tb.status <> com.bookcover.archive.domain.common.ContentStatus.DELETED))")
+        "AND (EXISTS (SELECT 1 FROM Media m WHERE m.id = c.book.id AND m.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED) " +
+        "OR EXISTS (SELECT 1 FROM OriginalBook ob WHERE ob.backCover = c AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED) " +
+        "OR EXISTS (SELECT 1 FROM TranslatedBook tb WHERE tb.backCover = c AND tb.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED))")
     Page<BookCover> findCreditedCovers(@Param("designerId") UUID designerId, @Param("role") CreditRole role, Pageable pageable);
 
     /**
