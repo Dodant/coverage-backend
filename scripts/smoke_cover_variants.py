@@ -62,9 +62,14 @@ check("set representative -> 204", s == 204, s)
 s, g = call("GET", f"/books/original/{bid}")
 check("representative switched", g["frontCover"]["id"] == v["id"], g["frontCover"])
 check("old representative kept as variant (no orphan delete)", first_cover in [c["id"] for c in g["covers"]], g["covers"])
-for _ in range(20):  # index sync is async (Kafka)
-    with urllib.request.urlopen(f"http://localhost:9200/book_covers/_doc/original_{bid}") as r:
-        thumbs = [json.loads(r.read())["_source"].get("thumbnailUrl", "")]
+thumbs = []
+for _ in range(20):  # index sync is async (Kafka); 404 means the document is not indexed yet
+    try:
+        with urllib.request.urlopen(f"http://localhost:9200/book_covers/_doc/original_{bid}") as r:
+            thumbs = [json.loads(r.read())["_source"].get("thumbnailUrl", "")]
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
     if thumbs and thumbs[0].endswith("recover_t.jpg"):
         break
     time.sleep(0.5)
