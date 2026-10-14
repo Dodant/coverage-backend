@@ -72,7 +72,7 @@ ids = {c["name"]: c["designerId"] for c in ob["frontCover"]["credits"] + ob["bac
 s, tb = call("POST", f"/books/translated/original/{bid}", {
     "title": "이방인", "countryCode": "KR", "languageCode": "ko", "year": 1987, "isbn": isbn13(),
     "authorName": "카뮈", "translatorName": "김화영", "publisherName": PUB,
-    "seriesName": SERIES, "seriesNumber": "3", "frontCover": img("kr")}, T)
+    "seriesName": SERIES, "seriesNumber": "3", "frontCover": img("kr", [{"designerName": D1, "role": "DESIGN"}])}, T)
 check("create translated in same series -> 201", s == 201, tb)
 check("same publisher+name reuses series", tb["series"]["id"] == series_id, tb)
 
@@ -105,12 +105,21 @@ s, books = call("GET", f"/series/{series_id}/books")
 check("series books ordered numerically", [b["seriesNumber"] for b in books] == ["3", "12"], books)
 check("series has both books", {b["type"] for b in books} == {"ORIGINAL", "TRANSLATED"}, books)
 
-# 7. 디자이너 프로필은 크레딧 기준 (뒷면 크레딧 포함, 빠진 크레딧은 제외)
-for name, expected in ((D1, 1), (D2, 1), (PHO, 1), (ILL, 0)):
+# 7. 디자이너 작업 표지 목록: 원서·번역서, 앞면 변형·뒷면 포함, 빠진 크레딧은 제외
+for name, expected in ((D1, 2), (D2, 2), (PHO, 1), (ILL, 0)):
     s, p = call("GET", f"/designers/{ids[name]}")
-    check(f"designer {name} bookCount == {expected}", s == 200 and p["bookCount"] == expected, p)
-s, page = call("GET", f"/designers/{ids[PHO]}/books")
-check("back-cover-only credit lists the book", [b["id"] for b in page["content"]] == [bid], page)
+    check(f"designer {name} coverCount == {expected}", s == 200 and p["coverCount"] == expected, p)
+s, page = call("GET", f"/designers/{ids[D1]}/covers")
+check("covers include original and translated", {c["book"]["type"] for c in page["content"]} == {"ORIGINAL", "TRANSLATED"}, page)
+s, page = call("GET", f"/designers/{ids[D2]}/covers")
+front = next(c for c in page["content"] if c["coverId"] == u["frontCover"]["id"])
+check("roles on one cover grouped", front["roles"] == ["DESIGN", "ART_DIRECTION"], front)
+s, page = call("GET", f"/designers/{ids[D2]}/covers?role=ART_DIRECTION")
+check("role filter", [c["coverId"] for c in page["content"]] == [u["frontCover"]["id"]], page)
+s, page = call("GET", f"/designers/{ids[PHO]}/covers")
+check("back cover resolves its book", [(c["coverType"], c["book"]["id"]) for c in page["content"]] == [("BACK", bid)], page)
+s, _ = call("GET", f"/designers/{ids[D1]}/books")
+check("old /designers/{id}/books removed", s != 200, s)
 
 # 8. 검색 인덱스에 크레딧 이름 반영 (Kafka 비동기)
 found = False
@@ -131,5 +140,11 @@ s, g = call("GET", f"/books/original/{bid}")
 check("merged front credits deduplicated", credit_set(g["frontCover"]) == {(D1, "DESIGN"), (D1, "ART_DIRECTION")}, g["frontCover"])
 variant = next(c for c in g["covers"] if c["id"] == v["id"])
 check("variant credit moved to target", credit_set(variant) == {(D1, "DESIGN")}, variant)
+
+# 10. 삭제된 책의 표지는 작업 목록에서 빠짐
+s, _ = call("DELETE", f"/books/translated/{tb['id']}", None, T)
+check("delete translated -> 204", s == 204, s)
+s, page = call("GET", f"/designers/{ids[D1]}/covers")
+check("deleted book's cover excluded", all(c["book"]["type"] == "ORIGINAL" for c in page["content"]), page)
 
 print("ALL PASS")

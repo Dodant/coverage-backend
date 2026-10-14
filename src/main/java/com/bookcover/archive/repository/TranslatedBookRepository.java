@@ -23,6 +23,9 @@ import java.util.UUID;
 @Repository
 public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, UUID> {
 
+    /** 뒷면 표지로 번역서를 찾습니다 */
+    Optional<TranslatedBook> findByBackCoverId(UUID coverId);
+
     /**
      * ISBN으로 번역서를 조회합니다.
      *

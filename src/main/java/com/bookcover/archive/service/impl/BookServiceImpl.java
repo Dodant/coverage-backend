@@ -566,12 +566,6 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OriginalBook> getBooksByDesigner(UUID designerId, Pageable pageable) {
-        return originalBookRepository.findByDesignerId(designerId, pageable);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public List<Media> findDuplicatesByIsbn(String isbn) {
         if (isbn == null || isbn.isBlank()) {
             return List.of();

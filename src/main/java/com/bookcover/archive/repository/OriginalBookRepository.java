@@ -67,19 +67,8 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
         countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.publisher.id = :publisherId")
     Page<OriginalBook> findByPublisherId(@Param("publisherId") UUID publisherId, Pageable pageable);
 
-    /**
-     * 표지 크레딧(역할 무관)에 디자이너가 있는 원서 목록을 조회합니다.
-     *
-     * @param designerId 디자이너 ID
-     * @param pageable 페이징 정보
-     * @return 원서 페이지
-     */
-    @Query(value = "SELECT ob FROM OriginalBook ob " +
-        "LEFT JOIN FETCH ob.author " +
-        "LEFT JOIN FETCH ob.publisher " +
-        "WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))",
-        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))")
-    Page<OriginalBook> findByDesignerId(@Param("designerId") UUID designerId, Pageable pageable);
+    /** 뒷면 표지로 원서를 찾습니다 (뒷면 표지는 book_id가 없어 소유 책을 역으로 찾는다) */
+    Optional<OriginalBook> findByBackCoverId(UUID coverId);
 
     /**
      * 작품(Work) ID로 원서 목록을 조회합니다.
@@ -176,12 +165,4 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
      */
     long countByPublisherId(UUID publisherId);
 
-    /**
-     * 디자이너 ID로 원서 수를 조회합니다.
-     *
-     * @param designerId 디자이너 ID
-     * @return 원서 수
-     */
-    @Query("SELECT count(ob) FROM OriginalBook ob WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))")
-    long countByDesignerId(@Param("designerId") UUID designerId);
 }

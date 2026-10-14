@@ -45,7 +45,6 @@ public interface BookService {
     List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId);
     Page<OriginalBook> getBooksByAuthor(UUID authorId, Pageable pageable);
     Page<OriginalBook> getBooksByPublisher(UUID publisherId, Pageable pageable);
-    Page<OriginalBook> getBooksByDesigner(UUID designerId, Pageable pageable);
 
     // 중복 검사
     List<Media> findDuplicatesByIsbn(String isbn);

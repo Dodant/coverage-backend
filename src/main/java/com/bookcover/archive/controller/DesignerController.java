@@ -1,14 +1,19 @@
 package com.bookcover.archive.controller;
 
-import com.bookcover.archive.controller.dto.book.OriginalBookResponse;
+import com.bookcover.archive.controller.dto.contributor.DesignerCoverResponse;
 import com.bookcover.archive.controller.dto.contributor.DesignerProfileResponse;
 import com.bookcover.archive.controller.dto.contributor.DesignerResponse;
-import com.bookcover.archive.domain.book.OriginalBook;
+import com.bookcover.archive.domain.book.BookCover;
+import com.bookcover.archive.domain.book.CreditRole;
 import com.bookcover.archive.domain.contributor.Designer;
 import com.bookcover.archive.exception.ResourceNotFoundException;
+import com.bookcover.archive.domain.media.Media;
+import com.bookcover.archive.repository.BookCoverRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
+import com.bookcover.archive.repository.TranslatedBookRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import org.hibernate.Hibernate;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,11 +41,16 @@ import java.util.UUID;
 public class DesignerController {
 
     private final DesignerRepository designerRepository;
+    private final BookCoverRepository bookCoverRepository;
     private final OriginalBookRepository originalBookRepository;
+    private final TranslatedBookRepository translatedBookRepository;
 
-    public DesignerController(DesignerRepository designerRepository, OriginalBookRepository originalBookRepository) {
+    public DesignerController(DesignerRepository designerRepository, BookCoverRepository bookCoverRepository,
+                              OriginalBookRepository originalBookRepository, TranslatedBookRepository translatedBookRepository) {
         this.designerRepository = designerRepository;
+        this.bookCoverRepository = bookCoverRepository;
         this.originalBookRepository = originalBookRepository;
+        this.translatedBookRepository = translatedBookRepository;
     }
 
     /**
@@ -58,29 +68,42 @@ public class DesignerController {
     public ResponseEntity<DesignerProfileResponse> getDesignerProfile(@PathVariable UUID id) {
         Designer designer = designerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Designer", id));
-        long bookCount = originalBookRepository.countByDesignerId(id);
-        return ResponseEntity.ok(DesignerProfileResponse.from(designer, bookCount));
+        long coverCount = bookCoverRepository.findCreditedCovers(id, null, Pageable.ofSize(1)).getTotalElements();
+        return ResponseEntity.ok(DesignerProfileResponse.from(designer, coverCount));
     }
 
     /**
-     * 디자이너의 작품 목록을 조회합니다.
+     * 디자이너가 크레딧에 오른 표지 목록을 조회합니다 (원서·번역서, 앞면 변형·뒷면 모두).
      *
      * Requirements: 10.3 - 디자이너가 디자인한 모든 북커버 목록 표시
      */
-    @GetMapping("/{id}/books")
-    @Operation(summary = "디자이너 작품 목록 조회", description = "디자이너가 디자인한 모든 북커버 목록을 조회합니다.")
+    @GetMapping("/{id}/covers")
+    @Operation(summary = "디자이너 작업 표지 목록", description = "디자이너가 크레딧에 오른 표지를 최근 등록순으로 조회합니다. role로 역할을 거를 수 있습니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
             @ApiResponse(responseCode = "404", description = "디자이너 없음")
     })
-    public ResponseEntity<Page<OriginalBookResponse>> getDesignerBooks(
+    public ResponseEntity<Page<DesignerCoverResponse>> getDesignerCovers(
             @PathVariable UUID id,
+            @RequestParam(required = false) CreditRole role,
             @PageableDefault(size = 20) Pageable pageable) {
         designerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Designer", id));
-        Page<OriginalBook> books = originalBookRepository.findByDesignerId(id, pageable);
-        Page<OriginalBookResponse> response = books.map(OriginalBookResponse::from);
+        // ponytail: 표지마다 크레딧·책을 지연 로딩한다 (페이지당 수십 쿼리). 느려지면 fetch join이나 batch size로
+        Page<DesignerCoverResponse> response = bookCoverRepository.findCreditedCovers(id, role, pageable)
+                .map(cover -> DesignerCoverResponse.from(cover, id, ownerOf(cover)));
         return ResponseEntity.ok(response);
+    }
+
+    /** 앞면 표지는 book으로, 뒷면 표지는 book_id가 없어 원서·번역서의 backCover로 역조회한다 */
+    private Media ownerOf(BookCover cover) {
+        if (cover.getBook() != null) {
+            // 지연 로딩 프록시는 Media 타입이라 instanceof OriginalBook이 거짓이 된다
+            return (Media) Hibernate.unproxy(cover.getBook());
+        }
+        return originalBookRepository.findByBackCoverId(cover.getId()).<Media>map(b -> b)
+                .or(() -> translatedBookRepository.findByBackCoverId(cover.getId()))
+                .orElse(null);
     }
 
     /**

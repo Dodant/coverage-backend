@@ -7,6 +7,7 @@ import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.repository.SeriesRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -103,7 +104,7 @@ public class SeriesController {
         static SeriesBookItem from(Media book) {
             return new SeriesBookItem(
                     book.getId(),
-                    book instanceof OriginalBook ? "ORIGINAL" : "TRANSLATED",
+                    Hibernate.unproxy(book) instanceof OriginalBook ? "ORIGINAL" : "TRANSLATED",
                     book.getTitle(),
                     book.getSeriesNumber(),
                     book.getYear(),

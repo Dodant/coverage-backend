@@ -233,22 +233,6 @@ public class OriginalBookController {
     }
 
     /**
-     * 디자이너별 원서 목록을 조회합니다.
-     */
-    @GetMapping("/by-designer/{designerId}")
-    @Operation(summary = "디자이너별 원서 조회", description = "표지 크레딧(역할 무관)에 해당 디자이너가 있는 원서를 조회합니다.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공")
-    })
-    public ResponseEntity<Page<OriginalBookResponse>> getBooksByDesigner(
-            @PathVariable UUID designerId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<OriginalBook> books = bookService.getBooksByDesigner(designerId, pageable);
-        Page<OriginalBookResponse> response = books.map(OriginalBookResponse::from);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
      * 중복 검사 응답 DTO.
      */
     public record DuplicateCheckResponse(UUID id, String title, String type) {}
