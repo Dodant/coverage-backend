@@ -3,6 +3,7 @@ package com.bookcover.archive.service.dto;
 import com.bookcover.archive.search.document.DocumentType;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * 검색 결과 항목 DTO.
@@ -17,7 +18,7 @@ public record SearchResultItem(
         String thumbnailUrl,
         String author,
         String publisher,
-        String designer,
+        List<String> designers,
         Integer year,
         String countryCode,
         String genre,

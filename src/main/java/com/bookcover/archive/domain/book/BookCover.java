@@ -1,6 +1,7 @@
 package com.bookcover.archive.domain.book;
 
 import com.bookcover.archive.domain.media.Media;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,10 +12,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -99,6 +103,38 @@ public class BookCover {
 
     /** 이 표지가 쓰이기 시작한 날짜 */
     private LocalDate usedFrom;
+
+    /** 표지가 쓰인 나라 (ISO 3166-1). null이면 책의 나라를 따른다 */
+    @Column(length = 2)
+    private String countryCode;
+
+    /** 표지 언어 (ISO 639-1). null이면 책의 언어를 따른다 */
+    @Column(length = 2)
+    private String languageCode;
+
+    /** 역할별 크레딧 (디자인·일러스트·사진 등) */
+    @OneToMany(mappedBy = "cover", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CoverCredit> credits = new ArrayList<>();
+
+    public List<CoverCredit> getCredits() {
+        return credits;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
+    }
+
+    public String getLanguageCode() {
+        return languageCode;
+    }
+
+    public void setLanguageCode(String languageCode) {
+        this.languageCode = languageCode;
+    }
 
     public Media getBook() {
         return book;

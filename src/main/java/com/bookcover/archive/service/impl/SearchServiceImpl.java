@@ -1,9 +1,11 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.book.Redesign;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
+import com.bookcover.archive.domain.media.Media;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.RedesignRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
@@ -30,8 +32,12 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * 검색 서비스 구현체.
@@ -106,7 +112,7 @@ public class SearchServiceImpl implements SearchService {
         boolQueryBuilder.must(Query.of(q -> q
                 .multiMatch(mm -> mm
                         .query(query)
-                        .fields("title^3", "originalTitle^2", "author^2", "publisher", "designer", "isbn^4", "description")
+                        .fields("title^3", "originalTitle^2", "author^2", "publisher", "designers", "isbn^4", "description")
                         .fuzziness("AUTO")
                 )
         ));
@@ -206,7 +212,7 @@ public class SearchServiceImpl implements SearchService {
                 doc.getThumbnailUrl(),
                 doc.getAuthor(),
                 doc.getPublisher(),
-                doc.getDesigner(),
+                doc.getDesigners(),
                 doc.getYear(),
                 doc.getCountryCode(),
                 doc.getGenre(),
@@ -349,10 +355,7 @@ public class SearchServiceImpl implements SearchService {
             doc.setPublisherId(book.getPublisher().getId().toString());
         }
 
-        if (book.getDesigner() != null) {
-            doc.setDesigner(book.getDesigner().getName());
-            doc.setDesignerId(book.getDesigner().getId().toString());
-        }
+        setCredits(doc, book);
 
         if (book.getFrontCover() != null) {
             doc.setThumbnailUrl(book.getFrontCover().getThumbnailUrl());
@@ -389,10 +392,7 @@ public class SearchServiceImpl implements SearchService {
             doc.setPublisherId(book.getPublisher().getId().toString());
         }
 
-        if (book.getDesigner() != null) {
-            doc.setDesigner(book.getDesigner().getName());
-            doc.setDesignerId(book.getDesigner().getId().toString());
-        }
+        setCredits(doc, book);
 
         if (book.getFrontCover() != null) {
             doc.setThumbnailUrl(book.getFrontCover().getThumbnailUrl());
@@ -400,6 +400,22 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return doc;
+    }
+
+    /** 앞면 표지 변형과 뒷면 표지의 크레딧 기여자를 중복 없이 모은다 */
+    private void setCredits(BookCoverDocument doc, Media book) {
+        Map<String, String> designers = new LinkedHashMap<>();
+        Stream.concat(book.getCovers().stream(), Stream.ofNullable(backCoverOf(book)))
+                .flatMap(cover -> cover.getCredits().stream())
+                .forEach(c -> designers.putIfAbsent(c.getDesigner().getId().toString(), c.getDesigner().getName()));
+        doc.setDesignerIds(new ArrayList<>(designers.keySet()));
+        doc.setDesigners(new ArrayList<>(designers.values()));
+    }
+
+    private static BookCover backCoverOf(Media book) {
+        if (book instanceof OriginalBook ob) return ob.getBackCover();
+        if (book instanceof TranslatedBook tb) return tb.getBackCover();
+        return null;
     }
 
     private BookCoverDocument toDocument(Redesign redesign) {

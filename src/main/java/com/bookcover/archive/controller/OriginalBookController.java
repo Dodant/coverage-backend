@@ -1,5 +1,7 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.controller.dto.book.OriginalBookResponse;
 import com.bookcover.archive.controller.dto.book.TranslatedBookResponse;
@@ -58,6 +60,7 @@ public class OriginalBookController {
      * Requirements: 1.1 - 필수 항목 검증, 1.5 - 고유 식별자 생성 및 저장
      */
     @PostMapping
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "원서 등록", description = "새 원서를 등록합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -81,9 +84,10 @@ public class OriginalBookController {
                 request.authorName(),
                 request.publisherId(),
                 request.publisherName(),
-                request.designerId(),
-                request.designerName(),
                 request.edition(),
+                request.seriesId(),
+                request.seriesName(),
+                request.seriesNumber(),
                 request.workId(),
                 request.frontCover(),
                 request.backCover(),
@@ -113,6 +117,7 @@ public class OriginalBookController {
      * 원서를 수정합니다.
      */
     @PutMapping("/{id}")
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "원서 수정", description = "원서 정보를 수정합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -122,9 +127,10 @@ public class OriginalBookController {
             @ApiResponse(responseCode = "404", description = "원서 없음")
     })
     public ResponseEntity<OriginalBookResponse> updateOriginalBook(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateOriginalBookRequest request) {
-        OriginalBook book = bookService.updateOriginalBook(id, request);
+        OriginalBook book = bookService.updateOriginalBook(id, request, userDetails.getId());
         return ResponseEntity.ok(OriginalBookResponse.from(book));
     }
 
@@ -227,22 +233,6 @@ public class OriginalBookController {
             @PathVariable UUID publisherId,
             @PageableDefault(size = 20) Pageable pageable) {
         Page<OriginalBook> books = bookService.getBooksByPublisher(publisherId, pageable);
-        Page<OriginalBookResponse> response = books.map(OriginalBookResponse::from);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * 디자이너별 원서 목록을 조회합니다.
-     */
-    @GetMapping("/by-designer/{designerId}")
-    @Operation(summary = "디자이너별 원서 조회", description = "특정 디자이너가 디자인한 모든 원서를 조회합니다.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "조회 성공")
-    })
-    public ResponseEntity<Page<OriginalBookResponse>> getBooksByDesigner(
-            @PathVariable UUID designerId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<OriginalBook> books = bookService.getBooksByDesigner(designerId, pageable);
         Page<OriginalBookResponse> response = books.map(OriginalBookResponse::from);
         return ResponseEntity.ok(response);
     }

@@ -3,6 +3,7 @@ package com.bookcover.archive.service.dto;
 import com.bookcover.archive.domain.book.ImageSource;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -24,9 +25,12 @@ public record UpdateTranslatedBookRequest(
     UUID authorId,
     UUID translatorId,
     UUID publisherId,
-    UUID designerId,
 
     String edition,
+    UUID seriesId,
+
+    @Size(max = 20, message = "시리즈 권 번호는 20자 이하여야 합니다")
+    String seriesNumber,
 
     BookCoverUpdateInfo frontCover,
     BookCoverUpdateInfo backCover
@@ -42,6 +46,9 @@ public record UpdateTranslatedBookRequest(
         Integer height,
         Long fileSize,
         ImageSource imageSource,
-        String sourceUrl
+        String sourceUrl,
+
+        /** 주면 크레딧 전체를 교체한다 (빈 목록이면 모두 삭제). null이면 그대로 둔다 */
+        List<CreditInfo> credits
     ) {}
 }

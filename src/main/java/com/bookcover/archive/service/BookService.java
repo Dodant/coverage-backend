@@ -31,13 +31,13 @@ public interface BookService {
 
     // 원서 관리
     OriginalBook createOriginalBook(CreateOriginalBookRequest request);
-    OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request);
+    OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request, UUID userId);
     Optional<OriginalBook> getOriginalBook(UUID id);
     void deleteOriginalBook(UUID id);
 
     // 번역서 관리
     TranslatedBook createTranslatedBook(UUID originalBookId, CreateTranslatedBookRequest request);
-    TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request);
+    TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request, UUID userId);
     Optional<TranslatedBook> getTranslatedBook(UUID id);
     void deleteTranslatedBook(UUID id);
 
@@ -45,7 +45,6 @@ public interface BookService {
     List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId);
     Page<OriginalBook> getBooksByAuthor(UUID authorId, Pageable pageable);
     Page<OriginalBook> getBooksByPublisher(UUID publisherId, Pageable pageable);
-    Page<OriginalBook> getBooksByDesigner(UUID designerId, Pageable pageable);
 
     // 중복 검사
     List<Media> findDuplicatesByIsbn(String isbn);
@@ -56,5 +55,5 @@ public interface BookService {
 
     // 표지 변형 (같은 ISBN의 여러 앞면 표지). bookId는 원서/번역서 모두 가능
     BookCover addCover(UUID bookId, AddCoverRequest request, UUID userId);
-    void setRepresentativeCover(UUID bookId, UUID coverId);
+    void setRepresentativeCover(UUID bookId, UUID coverId, UUID userId);
 }

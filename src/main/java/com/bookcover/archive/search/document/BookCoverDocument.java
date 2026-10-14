@@ -53,13 +53,13 @@ public class BookCoverDocument {
     @Field(type = FieldType.Keyword)
     private String publisherId;
 
-    /** 디자이너 이름 (한국어 분석기 적용) */
+    /** 표지 크레딧 기여자 이름 (역할 무관, 한국어 분석기 적용) */
     @Field(type = FieldType.Text, analyzer = "korean_analyzer", searchAnalyzer = "korean_analyzer")
-    private String designer;
+    private List<String> designers;
 
-    /** 디자이너 ID */
+    /** 표지 크레딧 기여자 ID */
     @Field(type = FieldType.Keyword)
-    private String designerId;
+    private List<String> designerIds;
 
     /** ISBN */
     @Field(type = FieldType.Keyword)
@@ -187,20 +187,20 @@ public class BookCoverDocument {
         this.publisherId = publisherId;
     }
 
-    public String getDesigner() {
-        return designer;
+    public List<String> getDesigners() {
+        return designers;
     }
 
-    public void setDesigner(String designer) {
-        this.designer = designer;
+    public void setDesigners(List<String> designers) {
+        this.designers = designers;
     }
 
-    public String getDesignerId() {
-        return designerId;
+    public List<String> getDesignerIds() {
+        return designerIds;
     }
 
-    public void setDesignerId(String designerId) {
-        this.designerId = designerId;
+    public void setDesignerIds(List<String> designerIds) {
+        this.designerIds = designerIds;
     }
 
     public String getIsbn() {

@@ -23,6 +23,9 @@ import java.util.UUID;
 @Repository
 public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, UUID> {
 
+    /** 뒷면 표지로 번역서를 찾습니다 */
+    Optional<TranslatedBook> findByBackCoverId(UUID coverId);
+
     /**
      * ISBN으로 번역서를 조회합니다.
      *
@@ -67,7 +70,6 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
         "LEFT JOIN FETCH tb.author " +
         "LEFT JOIN FETCH tb.translator " +
         "LEFT JOIN FETCH tb.publisher " +
-        "LEFT JOIN FETCH tb.designer " +
         "WHERE tb.author.id = :authorId",
         countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.author.id = :authorId")
     Page<TranslatedBook> findByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
@@ -83,7 +85,6 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
         "LEFT JOIN FETCH tb.author " +
         "LEFT JOIN FETCH tb.translator " +
         "LEFT JOIN FETCH tb.publisher " +
-        "LEFT JOIN FETCH tb.designer " +
         "WHERE tb.translator.id = :translatorId",
         countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.translator.id = :translatorId")
     Page<TranslatedBook> findByTranslatorId(@Param("translatorId") UUID translatorId, Pageable pageable);
@@ -99,26 +100,10 @@ public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, 
         "LEFT JOIN FETCH tb.author " +
         "LEFT JOIN FETCH tb.translator " +
         "LEFT JOIN FETCH tb.publisher " +
-        "LEFT JOIN FETCH tb.designer " +
         "WHERE tb.publisher.id = :publisherId",
         countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.publisher.id = :publisherId")
     Page<TranslatedBook> findByPublisherId(@Param("publisherId") UUID publisherId, Pageable pageable);
 
-    /**
-     * 디자이너 ID로 번역서 목록을 조회합니다.
-     *
-     * @param designerId 디자이너 ID
-     * @param pageable 페이징 정보
-     * @return 번역서 페이지
-     */
-    @Query(value = "SELECT tb FROM TranslatedBook tb " +
-        "LEFT JOIN FETCH tb.author " +
-        "LEFT JOIN FETCH tb.translator " +
-        "LEFT JOIN FETCH tb.publisher " +
-        "LEFT JOIN FETCH tb.designer " +
-        "WHERE tb.designer.id = :designerId",
-        countQuery = "SELECT count(tb) FROM TranslatedBook tb WHERE tb.designer.id = :designerId")
-    Page<TranslatedBook> findByDesignerId(@Param("designerId") UUID designerId, Pageable pageable);
 
     /**
      * 국가 코드로 번역서 목록을 조회합니다.

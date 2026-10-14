@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /**
  * 디자이너 프로필 응답 DTO.
- * 디자이너 프로필 정보와 관련 북커버 수를 반환합니다.
+ * 디자이너 프로필 정보와 크레딧에 오른 표지 수를 반환합니다.
  *
  * Requirements: 10.4, 10.5
  */
@@ -20,11 +20,11 @@ public record DesignerProfileResponse(
     String websiteUrl,
     String portfolioUrl,
     String nationality,
-    long bookCount,
+    long coverCount,
     Instant createdAt,
     Instant updatedAt
 ) {
-    public static DesignerProfileResponse from(Designer designer, long bookCount) {
+    public static DesignerProfileResponse from(Designer designer, long coverCount) {
         return new DesignerProfileResponse(
             designer.getId(),
             designer.getName(),
@@ -33,7 +33,7 @@ public record DesignerProfileResponse(
             designer.getWebsiteUrl(),
             designer.getPortfolioUrl(),
             designer.getNationality(),
-            bookCount,
+            coverCount,
             designer.getCreatedAt(),
             designer.getUpdatedAt()
         );

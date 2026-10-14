@@ -1,8 +1,12 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.domain.audit.AuditEntityType;
 import com.bookcover.archive.domain.book.BookCover;
+import com.bookcover.archive.domain.book.CoverCredit;
 import com.bookcover.archive.domain.book.CoverType;
+import com.bookcover.archive.domain.book.CreditRole;
 import com.bookcover.archive.domain.book.OriginalBook;
+import com.bookcover.archive.domain.book.Series;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.book.Work;
 import com.bookcover.archive.domain.common.ContentStatus;
@@ -24,15 +28,20 @@ import com.bookcover.archive.repository.BookSearchRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.PublisherRepository;
+import com.bookcover.archive.repository.SeriesRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.repository.TranslatorRepository;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.repository.WorkRepository;
 import com.bookcover.archive.service.BookService;
+import com.bookcover.archive.service.AuditService;
 import com.bookcover.archive.service.ContributionService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
 import com.bookcover.archive.service.dto.CreateTranslatedBookRequest;
+import com.bookcover.archive.service.dto.CreditInfo;
 import com.bookcover.archive.service.dto.UpdateOriginalBookRequest;
 import com.bookcover.archive.service.dto.UpdateTranslatedBookRequest;
 import com.bookcover.archive.validation.IsbnValidator;
@@ -42,9 +51,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -67,6 +82,8 @@ public class BookServiceImpl implements BookService {
     private final ContributionService contributionService;
     private final EventPublisher eventPublisher;
     private final BookCoverRepository bookCoverRepository;
+    private final SeriesRepository seriesRepository;
+    private final AuditService auditService;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -81,7 +98,9 @@ public class BookServiceImpl implements BookService {
             IsbnValidator isbnValidator,
             ContributionService contributionService,
             EventPublisher eventPublisher,
-            BookCoverRepository bookCoverRepository) {
+            BookCoverRepository bookCoverRepository,
+            SeriesRepository seriesRepository,
+            AuditService auditService) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -95,6 +114,8 @@ public class BookServiceImpl implements BookService {
         this.contributionService = contributionService;
         this.eventPublisher = eventPublisher;
         this.bookCoverRepository = bookCoverRepository;
+        this.seriesRepository = seriesRepository;
+        this.auditService = auditService;
     }
 
     @Override
@@ -150,20 +171,9 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        // 디자이너 연결
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
-        } else if (request.designerName() != null && !request.designerName().isBlank()) {
-            Designer designer = designerRepository.findByName(request.designerName())
-                    .orElseGet(() -> {
-                        Designer newDesigner = new Designer();
-                        newDesigner.setName(request.designerName());
-                        return designerRepository.save(newDesigner);
-                    });
-            book.setDesigner(designer);
-        }
+        // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
+        book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
+        book.setSeriesNumber(request.seriesNumber());
 
         // 작품 연결
         if (request.workId() != null) {
@@ -210,9 +220,10 @@ public class BookServiceImpl implements BookService {
 
 
     @Override
-    public OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request) {
+    public OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request, UUID editorId) {
         OriginalBook book = originalBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", id));
+        Map<String, Object> before = snapshot(book);
 
         // ISBN 검증 및 중복 검사 (변경된 경우)
         if (request.isbn() != null) {
@@ -246,11 +257,10 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
+        if (request.seriesId() != null) {
+            book.setSeries(resolveSeries(request.seriesId(), null, null));
         }
+        if (request.seriesNumber() != null) book.setSeriesNumber(request.seriesNumber());
 
         if (request.workId() != null) {
             Work work = workRepository.findById(request.workId())
@@ -282,6 +292,7 @@ public class BookServiceImpl implements BookService {
                 userId
         ));
 
+        logEdit(savedBook, before, editorId);
         return savedBook;
     }
 
@@ -397,20 +408,9 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        // 디자이너 연결
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
-        } else if (request.designerName() != null && !request.designerName().isBlank()) {
-            Designer designer = designerRepository.findByName(request.designerName())
-                    .orElseGet(() -> {
-                        Designer newDesigner = new Designer();
-                        newDesigner.setName(request.designerName());
-                        return designerRepository.save(newDesigner);
-                    });
-            book.setDesigner(designer);
-        }
+        // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
+        book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
+        book.setSeriesNumber(request.seriesNumber());
 
         // 등록자 연결
         if (request.createdById() != null) {
@@ -450,9 +450,10 @@ public class BookServiceImpl implements BookService {
 
 
     @Override
-    public TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request) {
+    public TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request, UUID editorId) {
         TranslatedBook book = translatedBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", id));
+        Map<String, Object> before = snapshot(book);
 
         // ISBN 검증 및 중복 검사 (변경된 경우)
         if (request.isbn() != null) {
@@ -490,11 +491,10 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
+        if (request.seriesId() != null) {
+            book.setSeries(resolveSeries(request.seriesId(), null, null));
         }
+        if (request.seriesNumber() != null) book.setSeriesNumber(request.seriesNumber());
 
         if (request.frontCover() != null) {
             updateBookCover(book.getFrontCover(), request.frontCover());
@@ -520,6 +520,7 @@ public class BookServiceImpl implements BookService {
                 userId
         ));
 
+        logEdit(savedBook, before, editorId);
         return savedBook;
     }
 
@@ -579,12 +580,6 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OriginalBook> getBooksByDesigner(UUID designerId, Pageable pageable) {
-        return originalBookRepository.findByDesignerId(designerId, pageable);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public List<Media> findDuplicatesByIsbn(String isbn) {
         if (isbn == null || isbn.isBlank()) {
             return List.of();
@@ -626,19 +621,34 @@ public class BookServiceImpl implements BookService {
         cover.setLabel(request.label());
         cover.setPrintingFrom(request.printingFrom());
         cover.setUsedFrom(request.usedFrom());
+        if (request.countryCode() != null && !request.countryCode().isBlank()) {
+            cover.setCountryCode(request.countryCode().trim().toUpperCase());
+        }
+        if (request.languageCode() != null && !request.languageCode().isBlank()) {
+            cover.setLanguageCode(request.languageCode().trim().toLowerCase());
+        }
         cover.setBook(book);
+        applyCredits(cover, request.credits());
         BookCover saved = bookCoverRepository.save(cover);
         book.getCovers().add(saved);
+        if (userId != null) {
+            auditService.logUpdate(auditTypeOf(book), book.getId(), userId, null,
+                    toJson(Map.of("addedCover", coverSnapshot(saved))));
+        }
 
         if (userId != null) {
             contributionService.incrementContribution(userId);
         }
+
+        // 새 표지의 크레딧이 검색 인덱스에 반영되도록 수정 이벤트 발행
+        publishBookUpdated(book);
         return saved;
     }
 
     @Override
-    public void setRepresentativeCover(UUID bookId, UUID coverId) {
+    public void setRepresentativeCover(UUID bookId, UUID coverId, UUID userId) {
         Media book = findActiveBook(bookId);
+        Map<String, Object> before = snapshot(book);
         BookCover cover = bookCoverRepository.findById(coverId)
                 .orElseThrow(() -> new ResourceNotFoundException("BookCover", coverId));
         if (cover.getBook() == null || !cover.getBook().getId().equals(bookId)) {
@@ -646,12 +656,17 @@ public class BookServiceImpl implements BookService {
         }
         book.setFrontCover(cover);
         book.setUpdatedAt(Instant.now());
+        logEdit(book, before, userId);
 
         // 검색 인덱스의 썸네일이 대표 표지를 따라가도록 수정 이벤트 발행
+        publishBookUpdated(book);
+    }
+
+    private void publishBookUpdated(Media book) {
         UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
         eventPublisher.publishContentEvent(new ContentEvent(
                 book instanceof OriginalBook ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED,
-                bookId,
+                book.getId(),
                 userId
         ));
     }
@@ -689,6 +704,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
         return cover;
     }
 
@@ -703,6 +719,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
         return cover;
     }
 
@@ -715,6 +732,7 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
     }
 
     private void updateBookCover(BookCover cover, UpdateTranslatedBookRequest.BookCoverUpdateInfo info) {
@@ -726,5 +744,193 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
+    }
+
+    /**
+     * 표지 크레딧을 요청 목록과 같게 맞춘다. credits가 null이면 그대로 둔다.
+     * 전부 지우고 다시 넣으면 flush 때 INSERT가 DELETE보다 먼저 나가 유니크 제약에 걸리므로,
+     * 그대로인 (디자이너, 역할)은 남기고 차이만 반영한다.
+     */
+    private void applyCredits(BookCover cover, List<CreditInfo> credits) {
+        if (credits == null) {
+            return;
+        }
+        // 이름 없는 디자이너를 새로 만들므로 한 요청이 공개 디자이너 목록을 채우지 못하게 막는다
+        if (credits.size() > MAX_CREDITS_PER_COVER) {
+            throw new ValidationException("표지 크레딧은 " + MAX_CREDITS_PER_COVER + "개까지 넣을 수 있습니다",
+                    Map.of("credits", credits.size()));
+        }
+        List<CoverCredit> wanted = new ArrayList<>();
+        Set<String> wantedKeys = new HashSet<>();
+        for (CreditInfo info : credits) {
+            if (info == null) {
+                throw new ValidationException("Credit entry must not be null", Map.of());
+            }
+            if (info.role() == null) {
+                throw new ValidationException("Credit role is required", Map.of());
+            }
+            Designer designer = resolveDesigner(info.designerId(), info.designerName());
+            if (designer == null) {
+                throw new ValidationException("Credit requires designerId or designerName",
+                        Map.of("role", info.role().name()));
+            }
+            if (wantedKeys.add(creditKey(designer, info.role()))) {
+                wanted.add(new CoverCredit(cover, designer, info.role()));
+            }
+        }
+
+        cover.getCredits().removeIf(c -> !wantedKeys.contains(creditKey(c.getDesigner(), c.getRole())));
+        Set<String> existingKeys = new HashSet<>();
+        cover.getCredits().forEach(c -> existingKeys.add(creditKey(c.getDesigner(), c.getRole())));
+        wanted.stream()
+                .filter(c -> !existingKeys.contains(creditKey(c.getDesigner(), c.getRole())))
+                .forEach(cover.getCredits()::add);
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * 위키식 편집 기록. 수정 전후 스냅샷에서 바뀐 항목만 감사 로그에 남긴다 (조회: GET /admin/dashboard/logs/entity/{type}/{id}).
+     * 이전 값(previousValue)을 그대로 남기므로 장난성 수정을 관리자가 보고 되돌릴 수 있다.
+     */
+    // ponytail: 되돌리기는 수동(이전 값을 보고 PUT). 반복되면 로그 id로 되돌리는 관리자 API를 추가
+    private void logEdit(Media book, Map<String, Object> before, UUID userId) {
+        if (userId == null) {
+            return;
+        }
+        Map<String, Object> after = snapshot(book);
+        Map<String, Object> previous = new LinkedHashMap<>();
+        Map<String, Object> changed = new LinkedHashMap<>();
+        after.forEach((key, value) -> {
+            if (!Objects.equals(before.get(key), value)) {
+                previous.put(key, before.get(key));
+                changed.put(key, value);
+            }
+        });
+        if (!changed.isEmpty()) {
+            auditService.logUpdate(auditTypeOf(book), book.getId(), userId, toJson(previous), toJson(changed));
+        }
+    }
+
+    /** 수정 API로 바꿀 수 있는 항목의 스냅샷 (연관은 id로) */
+    private static Map<String, Object> snapshot(Media book) {
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("title", book.getTitle());
+        s.put("countryCode", book.getCountryCode());
+        s.put("languageCode", book.getLanguageCode());
+        s.put("year", book.getYear());
+        s.put("seriesId", book.getSeries() != null ? book.getSeries().getId() : null);
+        s.put("seriesNumber", book.getSeriesNumber());
+        BookCover backCover = null;
+        if (book instanceof OriginalBook ob) {
+            s.put("originalTitle", ob.getOriginalTitle());
+            s.put("genre", ob.getGenre());
+            s.put("isbn", ob.getIsbn());
+            s.put("edition", ob.getEdition());
+            s.put("authorId", ob.getAuthor() != null ? ob.getAuthor().getId() : null);
+            s.put("publisherId", ob.getPublisher() != null ? ob.getPublisher().getId() : null);
+            s.put("workId", ob.getWork() != null ? ob.getWork().getId() : null);
+            backCover = ob.getBackCover();
+        } else if (book instanceof TranslatedBook tb) {
+            s.put("isbn", tb.getIsbn());
+            s.put("edition", tb.getEdition());
+            s.put("authorId", tb.getAuthor() != null ? tb.getAuthor().getId() : null);
+            s.put("translatorId", tb.getTranslator() != null ? tb.getTranslator().getId() : null);
+            s.put("publisherId", tb.getPublisher() != null ? tb.getPublisher().getId() : null);
+            backCover = tb.getBackCover();
+        }
+        s.put("frontCover", coverSnapshot(book.getFrontCover()));
+        s.put("backCover", coverSnapshot(backCover));
+        return s;
+    }
+
+    private static Map<String, Object> coverSnapshot(BookCover cover) {
+        if (cover == null) {
+            return null;
+        }
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("id", cover.getId());
+        s.put("imageUrl", cover.getImageUrl());
+        s.put("thumbnailUrl", cover.getThumbnailUrl());
+        s.put("sourceUrl", cover.getSourceUrl());
+        s.put("credits", cover.getCredits().stream()
+                .map(c -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("designerId", c.getDesigner().getId());
+                    m.put("name", c.getDesigner().getName());
+                    m.put("role", c.getRole());
+                    return m;
+                })
+                .sorted(Comparator.comparing((Map<String, Object> m) -> m.get("designerId") + ":" + m.get("role")))
+                .toList());
+        return s;
+    }
+
+    private static AuditEntityType auditTypeOf(Media book) {
+        return book instanceof OriginalBook ? AuditEntityType.ORIGINAL_BOOK : AuditEntityType.TRANSLATED_BOOK;
+    }
+
+    private static String toJson(Object value) {
+        try {
+            return JSON.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize audit value", e);
+        }
+    }
+
+    private static final int MAX_CREDITS_PER_COVER = 20;
+    private static final int MAX_NAME_LENGTH = 255;
+
+    /** 이름 컬럼(varchar 255)을 넘으면 DB 오류(500) 대신 400으로 거절한다 */
+    private static String checkNameLength(String name, String field) {
+        if (name.length() > MAX_NAME_LENGTH) {
+            throw new ValidationException(field + "은 " + MAX_NAME_LENGTH + "자 이하여야 합니다", Map.of(field, name.length()));
+        }
+        return name;
+    }
+
+    private static String creditKey(Designer designer, CreditRole role) {
+        return designer.getId() + ":" + role;
+    }
+
+    private Designer resolveDesigner(UUID designerId, String designerName) {
+        if (designerId != null) {
+            return designerRepository.findById(designerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Designer", designerId));
+        }
+        if (designerName == null || designerName.isBlank()) {
+            return null;
+        }
+        String name = checkNameLength(designerName.trim(), "designerName");
+        // ponytail: 이름 유니크 제약이 없어 동시 등록이면 중복 행이 생길 수 있다. 조회가 첫 행을 쓰므로 500은 안 나고, 중복은 관리자 병합으로 정리
+        return designerRepository.findExactNameOrAlias(name).stream().findFirst()
+                .orElseGet(() -> {
+                    Designer newDesigner = new Designer();
+                    newDesigner.setName(name);
+                    return designerRepository.save(newDesigner);
+                });
+    }
+
+    /** seriesId가 있으면 그것을, 없으면 출판사 안에서 이름으로 찾거나 새로 만든다 */
+    private Series resolveSeries(UUID seriesId, String seriesName, Publisher publisher) {
+        if (seriesId != null) {
+            return seriesRepository.findById(seriesId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Series", seriesId));
+        }
+        if (seriesName == null || seriesName.isBlank()) {
+            return null;
+        }
+        String name = checkNameLength(seriesName.trim(), "seriesName");
+        // ponytail: (이름, 출판사) 유니크 제약이 없어 동시 등록이면 중복 행이 생길 수 있다. 조회는 첫 행을 쓰므로 500은 안 난다
+        Optional<Series> existing = publisher != null
+                ? seriesRepository.findFirstByNameAndPublisherIdOrderByCreatedAtAsc(name, publisher.getId())
+                : seriesRepository.findFirstByNameAndPublisherIsNullOrderByCreatedAtAsc(name);
+        return existing.orElseGet(() -> {
+            Series series = new Series();
+            series.setName(name);
+            series.setPublisher(publisher);
+            return seriesRepository.save(series);
+        });
     }
 }
