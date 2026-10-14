@@ -626,6 +626,12 @@ public class BookServiceImpl implements BookService {
         cover.setLabel(request.label());
         cover.setPrintingFrom(request.printingFrom());
         cover.setUsedFrom(request.usedFrom());
+        if (request.countryCode() != null && !request.countryCode().isBlank()) {
+            cover.setCountryCode(request.countryCode().trim().toUpperCase());
+        }
+        if (request.languageCode() != null && !request.languageCode().isBlank()) {
+            cover.setLanguageCode(request.languageCode().trim().toLowerCase());
+        }
         cover.setBook(book);
         BookCover saved = bookCoverRepository.save(cover);
         book.getCovers().add(saved);

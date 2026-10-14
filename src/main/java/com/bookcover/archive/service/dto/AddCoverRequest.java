@@ -1,6 +1,8 @@
 package com.bookcover.archive.service.dto;
 
 import com.bookcover.archive.domain.book.ImageSource;
+import com.bookcover.archive.validation.annotation.ValidCountryCode;
+import com.bookcover.archive.validation.annotation.ValidLanguageCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -33,5 +35,13 @@ public record AddCoverRequest(
     @Positive(message = "쇄는 1 이상이어야 합니다")
     Integer printingFrom,
 
-    LocalDate usedFrom
+    LocalDate usedFrom,
+
+    /** 표지가 쓰인 나라 (ISO 3166-1). 없으면 책의 나라를 따른다 */
+    @ValidCountryCode(optional = true, message = "올바른 국가 코드가 아닙니다")
+    String countryCode,
+
+    /** 표지 언어 (ISO 639-1). 없으면 책의 언어를 따른다 */
+    @ValidLanguageCode(optional = true, message = "올바른 언어 코드가 아닙니다")
+    String languageCode
 ) {}

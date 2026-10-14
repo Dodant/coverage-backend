@@ -30,7 +30,9 @@ public record BookCoverResponse(
     Instant createdAt,
     String label,
     Integer printingFrom,
-    LocalDate usedFrom
+    LocalDate usedFrom,
+    String countryCode,
+    String languageCode
 ) {
     public static BookCoverResponse from(BookCover cover) {
         if (cover == null) {
@@ -54,7 +56,9 @@ public record BookCoverResponse(
             cover.getCreatedAt(),
             cover.getLabel(),
             cover.getPrintingFrom(),
-            cover.getUsedFrom()
+            cover.getUsedFrom(),
+            cover.getCountryCode(),
+            cover.getLanguageCode()
         );
     }
 }
