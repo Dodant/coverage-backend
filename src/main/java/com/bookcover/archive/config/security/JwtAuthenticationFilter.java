@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -48,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     ? (CustomUserDetails) userDetailsService.loadUserByUsername(claims.getSubject()) : null;
 
             // 정지·탈퇴 계정, 같은 이메일로 재가입한 다른 계정에는 발급된 토큰이 남아 있어도 비로그인으로 처리
-            if (userDetails != null && userDetails.isEnabled()
+            if (userDetails != null && userDetails.isEnabled() && userDetails.isAccountNonLocked()
                     && JwtTokenProvider.isIssuedTo(claims, userDetails.getId())) {
 
                 UsernamePasswordAuthenticationToken authentication =
@@ -57,6 +58,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (UsernameNotFoundException ex) {
+            // 탈퇴로 이메일이 바뀐 계정의 남은 토큰. 예외 메시지에 원래 이메일이 있으므로 남기지 않는다
+            logger.debug("JWT subject no longer maps to a user");
         } catch (Exception ex) {
             logger.error("Could not set user authentication in security context", ex);
         }

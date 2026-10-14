@@ -39,7 +39,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 사용자 이메일로 액세스 토큰을 생성합니다.
+     * 액세스 토큰을 생성합니다. subject는 이메일, uid 클레임은 사용자 ID.
      */
     public String generateAccessToken(String email, UUID userId) {
         Date now = new Date();
@@ -56,7 +56,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 리프레시 토큰을 생성합니다.
+     * 리프레시 토큰을 생성합니다. subject는 이메일, uid 클레임은 사용자 ID, jti는 1회용 폐기 키.
      */
     public String generateRefreshToken(String email, UUID userId) {
         Date now = new Date();

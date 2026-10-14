@@ -1,5 +1,6 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.config.security.JwtProperties;
 import com.bookcover.archive.config.security.JwtTokenProvider;
 import com.bookcover.archive.controller.dto.auth.AuthResponse;
@@ -147,9 +148,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional(readOnly = true)
     public AuthResponse refreshToken(TokenRefreshRequest request) {
         Claims claims = jwtTokenProvider.parse(request.refreshToken(), JwtTokenProvider.REFRESH);
-
-        // 리프레시 토큰은 1회용: 사용과 동시에 폐기해 탈취된 옛 토큰·로그아웃한 토큰을 막는다
-        if (claims == null || !revoke(claims)) {
+        if (claims == null) {
             throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
         }
 
@@ -162,9 +161,16 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
         }
 
-        // 계정 상태 확인
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        // 계정 상태 확인 (정지 만료 판단은 로그인·필터와 같은 CustomUserDetails 규칙)
+        CustomUserDetails account = new CustomUserDetails(user);
+        if (!account.isEnabled() || !account.isAccountNonLocked()) {
             throw new ValidationException("Account not active", Map.of("account", "Account is not active"));
+        }
+
+        // 리프레시 토큰은 1회용: 검증을 모두 통과한 뒤 발급 직전에 폐기한다.
+        // 실패한 요청이 토큰을 태우지 않고, 동시 갱신은 setIfAbsent로 하나만 성공한다
+        if (!revoke(claims)) {
+            throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
         }
 
         // 새 토큰 생성

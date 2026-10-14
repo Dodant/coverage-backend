@@ -45,7 +45,7 @@ Every path is prefixed with `/api`. See Swagger for the full spec.
 
 | Path | Purpose | Auth |
 |---|---|---|
-| `/auth` | Sign up, log in, refresh token (single-use: each refresh returns a new one), log out (`POST /auth/logout` with the refresh token) | None |
+| `/auth` | Sign up, log in, refresh token (single-use: each refresh returns a new one; clients must store it and must not refresh concurrently), log out (`POST /auth/logout` with the refresh token) | None |
 | `/books/original`, `/books/translated`, `/books/{bookId}/covers` | Original books, translations, cover variants | GET is public |
 | `/covers`, `/redesigns` | Cover image upload, redesigns | GET is public |
 | `/search` (browsing under `/search/browse/...`), `/tags`, `/authors`, `/publishers`, `/designers`, `/series` | Search, browsing, entities | GET is public |

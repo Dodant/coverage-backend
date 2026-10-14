@@ -79,6 +79,8 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return status == UserStatus.ACTIVE;
+        // 정지는 isAccountNonLocked가 만료 시각까지 보고 판단한다. 여기서 SUSPENDED를 막으면
+        // 정지 기간이 지나도 로그인이 DisabledException으로 막혀 상태 복구 코드에 닿지 못한다.
+        return status != UserStatus.DELETED;
     }
 }

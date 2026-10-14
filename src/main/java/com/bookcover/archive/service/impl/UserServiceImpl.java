@@ -2,8 +2,13 @@ package com.bookcover.archive.service.impl;
 
 import com.bookcover.archive.controller.dto.user.ChangePasswordRequest;
 import com.bookcover.archive.controller.dto.user.UpdateProfileRequest;
+import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.user.User;
 import com.bookcover.archive.domain.user.UserStatus;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
+import com.bookcover.archive.event.EventPublisher;
+import com.bookcover.archive.repository.RedesignRepository;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.UserRepository;
@@ -28,10 +33,15 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RedesignRepository redesignRepository;
+    private final EventPublisher eventPublisher;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder,
+                           RedesignRepository redesignRepository, EventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.redesignRepository = redesignRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -102,6 +112,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void withdraw(UUID userId, String password) {
         User user = getUserById(userId);
 
@@ -111,7 +122,8 @@ public class UserServiceImpl implements UserService {
         }
 
         // email은 unique·not null이라 id 기반 자리표시자로 바꿔 원래 이메일을 재가입에 풀어준다.
-        // 이메일이 바뀌므로 남은 액세스·리프레시 토큰도 사용자 조회에 실패해 무효가 된다.
+        // 남은 토큰은 status=DELETED와 uid 클레임 불일치(JwtTokenProvider.isIssuedTo)로 거부된다.
+        // 이메일 교체만으로는 같은 이메일로 재가입한 계정에 옛 토큰이 통하므로 uid 검사를 지우면 안 된다.
         user.setEmail("deleted-" + user.getId() + "@deleted.invalid");
         user.setDisplayName("탈퇴한 회원");
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
@@ -120,6 +132,13 @@ public class UserServiceImpl implements UserService {
         user.getSnsAccounts().clear();
         user.setStatus(UserStatus.DELETED);
         userRepository.save(user);
+
+        // 리디자인 검색 문서의 creatorName에 실명이 남아 있으므로 다시 색인한다
+        // 삭제된 리디자인은 색인에서 이미 지워졌으므로 되살리지 않는다
+        redesignRepository.findByCreatedById(userId).stream()
+                .filter(redesign -> redesign.getStatus() != ContentStatus.DELETED)
+                .forEach(redesign -> eventPublisher.publishContentEvent(
+                        new ContentEvent(ContentEventType.REDESIGN_UPDATED, redesign.getId(), userId)));
     }
 
     @Override

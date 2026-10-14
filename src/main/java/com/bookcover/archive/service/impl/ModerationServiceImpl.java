@@ -1,5 +1,6 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.book.Redesign;
 import com.bookcover.archive.domain.book.TranslatedBook;
@@ -84,8 +85,8 @@ public class ModerationServiceImpl implements ModerationService {
                     Map.of("userId", reporterId));
         }
 
-        // 문제 8 해결: 정지된 사용자 검증 추가
-        if (reporter.getStatus() == UserStatus.SUSPENDED) {
+        // 문제 8 해결: 정지된 사용자 검증 추가 (정지 기간이 지났으면 허용 — 로그인·필터와 같은 규칙)
+        if (!new CustomUserDetails(reporter).isAccountNonLocked()) {
             throw new ValidationException("Suspended users cannot create reports",
                     Map.of("userId", reporterId, "status", reporter.getStatus().name()));
         }

@@ -30,7 +30,7 @@ Single Spring Boot module, package `com.bookcover.archive`. PostgreSQL is the so
 
 ## Request lifecycle
 
-1. **`JwtAuthenticationFilter`** reads `Authorization: Bearer <jwt>`, takes the email from the token, **reloads the user from the DB** and sets a `CustomUserDetails` principal. Role and status changes therefore apply on the next request without issuing a new token. An invalid token is logged and the request continues as anonymous.
+1. **`JwtAuthenticationFilter`** reads `Authorization: Bearer <jwt>`, accepts only `typ=access` tokens, takes the email from the token, **reloads the user from the DB** and sets a `CustomUserDetails` principal only if the token's `uid` matches that user and the user is ACTIVE (suspended/withdrawn users are anonymous). Refresh tokens are single-use (`revoked_refresh:{jti}` in Redis). Role and status changes therefore apply on the next request without issuing a new token. An invalid token is logged and the request continues as anonymous.
 2. **`SecurityConfig`** decides access: public GETs, `/auth/**`, anonymous `POST /takedowns`, `/admin/**` requires ADMIN, everything else requires authentication. Sessions are stateless and CSRF is off.
 3. **`RateLimitInterceptor`** acts only on handler methods annotated `@RateLimited(action = …)` (see [Rate limiting](#rate-limiting)).
 4. **Controller** validates the request DTO with `@Valid` and calls a service. Controllers map entities to response DTOs **after** the service transaction has closed, which is why `spring.jpa.open-in-view` must stay `true`.
