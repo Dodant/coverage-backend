@@ -62,6 +62,7 @@ Single Spring Boot module, package `com.bookcover.archive`. PostgreSQL is the so
 ```
 
 - **Credits live on covers, not books.** A recover can have a different designer than the first cover. Illustrators and photographers are also `Designer` entities. Designer profile `coverCount`, `/designers/{id}/covers` (one row per cover with the designer's roles, `?role=` filter) and search (`designers`, `designerIds` in the ES document) all go through the credits of front-cover variants and the back cover.
+- **Books are edited wiki-style.** Any signed-in user can edit any book (no ownership check). Each edit, cover addition and representative-cover change writes an `UPDATE` audit log containing only the changed fields with their previous values, viewable at `GET /admin/dashboard/logs/entity/{ORIGINAL_BOOK|TRANSLATED_BOOK}/{id}`. Reverting is manual: re-apply the previous values with `PUT`.
 - **Content status** (`ContentStatus`): `DRAFT`, `PUBLISHED`, `HIDDEN`, `DELETED`. Applies to books, redesigns and comments; search only returns `PUBLISHED`.
 - **Contributors**: `Author`, `Publisher`, `Designer` and `Translator` are separate entities with alias support. Admins merge duplicates through `EntityManagementService`.
 - **Social and collections are polymorphic** by `(targetType, targetId)` rather than foreign keys:

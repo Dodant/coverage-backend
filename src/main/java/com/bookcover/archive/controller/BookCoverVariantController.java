@@ -66,8 +66,11 @@ public class BookCoverVariantController {
             @ApiResponse(responseCode = "400", description = "다른 책의 표지"),
             @ApiResponse(responseCode = "404", description = "책 또는 표지 없음")
     })
-    public ResponseEntity<Void> setRepresentative(@PathVariable UUID bookId, @PathVariable UUID coverId) {
-        bookService.setRepresentativeCover(bookId, coverId);
+    public ResponseEntity<Void> setRepresentative(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID bookId,
+            @PathVariable UUID coverId) {
+        bookService.setRepresentativeCover(bookId, coverId, userDetails.getId());
         return ResponseEntity.noContent().build();
     }
 }

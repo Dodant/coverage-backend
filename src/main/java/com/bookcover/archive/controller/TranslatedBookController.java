@@ -120,9 +120,10 @@ public class TranslatedBookController {
             @ApiResponse(responseCode = "404", description = "번역서 없음")
     })
     public ResponseEntity<TranslatedBookResponse> updateTranslatedBook(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateTranslatedBookRequest request) {
-        TranslatedBook book = bookService.updateTranslatedBook(id, request);
+        TranslatedBook book = bookService.updateTranslatedBook(id, request, userDetails.getId());
         return ResponseEntity.ok(TranslatedBookResponse.from(book));
     }
 

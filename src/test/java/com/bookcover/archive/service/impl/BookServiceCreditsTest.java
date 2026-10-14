@@ -1,5 +1,6 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.domain.audit.AuditEntityType;
 import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.CoverCredit;
 import com.bookcover.archive.domain.book.CreditRole;
@@ -18,6 +19,7 @@ import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.repository.TranslatorRepository;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.repository.WorkRepository;
+import com.bookcover.archive.service.AuditService;
 import com.bookcover.archive.service.ContributionService;
 import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreditInfo;
@@ -25,6 +27,7 @@ import com.bookcover.archive.service.dto.UpdateOriginalBookRequest;
 import com.bookcover.archive.validation.IsbnValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +41,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -49,6 +56,8 @@ class BookServiceCreditsTest {
     private final OriginalBookRepository originalBookRepository = mock(OriginalBookRepository.class);
     private final DesignerRepository designerRepository = mock(DesignerRepository.class);
     private final BookCoverRepository bookCoverRepository = mock(BookCoverRepository.class);
+    private final AuditService auditService = mock(AuditService.class);
+    private final UUID editor = UUID.randomUUID();
     private final List<Designer> designers = new ArrayList<>();
     private BookServiceImpl service;
     private OriginalBook book;
@@ -59,7 +68,7 @@ class BookServiceCreditsTest {
                 mock(AuthorRepository.class), mock(PublisherRepository.class), designerRepository,
                 mock(TranslatorRepository.class), mock(WorkRepository.class), mock(UserRepository.class),
                 mock(BookSearchRepository.class), mock(IsbnValidator.class), mock(ContributionService.class),
-                mock(EventPublisher.class), bookCoverRepository, mock(SeriesRepository.class));
+                mock(EventPublisher.class), bookCoverRepository, mock(SeriesRepository.class), auditService);
 
         book = new OriginalBook();
         book.setId(UUID.randomUUID());
@@ -116,6 +125,26 @@ class BookServiceCreditsTest {
         assertThat(designers).isEmpty();
     }
 
+    @Test
+    void editHistoryRecordsOnlyChangedFieldsWithPreviousValues() {
+        updateFrontCredits(List.of(credit("가", CreditRole.DESIGN)));
+        clearInvocations(auditService);
+
+        updateFrontCredits(List.of(credit("나", CreditRole.ILLUSTRATION)));
+
+        ArgumentCaptor<String> previous = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> changed = ArgumentCaptor.forClass(String.class);
+        verify(auditService).logUpdate(eq(AuditEntityType.ORIGINAL_BOOK), eq(book.getId()), eq(editor),
+                previous.capture(), changed.capture());
+        assertThat(previous.getValue()).startsWith("{\"frontCover\"").contains("\"name\":\"가\"", "DESIGN").doesNotContain("title");
+        assertThat(changed.getValue()).contains("\"name\":\"나\"", "ILLUSTRATION");
+
+        // 바뀐 것이 없으면 기록하지 않는다
+        clearInvocations(auditService);
+        updateFrontCredits(null);
+        verifyNoInteractions(auditService);
+    }
+
     private static CreditInfo credit(String name, CreditRole role) {
         return new CreditInfo(null, name, role);
     }
@@ -129,7 +158,7 @@ class BookServiceCreditsTest {
         UpdateOriginalBookRequest.BookCoverUpdateInfo front = new UpdateOriginalBookRequest.BookCoverUpdateInfo(
                 null, null, null, null, null, null, null, null, credits == null ? null : Collections.unmodifiableList(credits));
         service.updateOriginalBook(book.getId(), new UpdateOriginalBookRequest(null, null, null, null, null, null,
-                null, null, null, null, null, null, null, front, null));
+                null, null, null, null, null, null, null, front, null), editor);
     }
 
     private static List<String> keys(BookCover cover) {

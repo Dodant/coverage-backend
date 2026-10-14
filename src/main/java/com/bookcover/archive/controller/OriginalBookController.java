@@ -127,9 +127,10 @@ public class OriginalBookController {
             @ApiResponse(responseCode = "404", description = "원서 없음")
     })
     public ResponseEntity<OriginalBookResponse> updateOriginalBook(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateOriginalBookRequest request) {
-        OriginalBook book = bookService.updateOriginalBook(id, request);
+        OriginalBook book = bookService.updateOriginalBook(id, request, userDetails.getId());
         return ResponseEntity.ok(OriginalBookResponse.from(book));
     }
 

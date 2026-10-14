@@ -1,5 +1,6 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.domain.audit.AuditEntityType;
 import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.CoverCredit;
 import com.bookcover.archive.domain.book.CoverType;
@@ -33,7 +34,10 @@ import com.bookcover.archive.repository.TranslatorRepository;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.repository.WorkRepository;
 import com.bookcover.archive.service.BookService;
+import com.bookcover.archive.service.AuditService;
 import com.bookcover.archive.service.ContributionService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
 import com.bookcover.archive.service.dto.CreateTranslatedBookRequest;
@@ -48,9 +52,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -76,6 +83,7 @@ public class BookServiceImpl implements BookService {
     private final EventPublisher eventPublisher;
     private final BookCoverRepository bookCoverRepository;
     private final SeriesRepository seriesRepository;
+    private final AuditService auditService;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -91,7 +99,8 @@ public class BookServiceImpl implements BookService {
             ContributionService contributionService,
             EventPublisher eventPublisher,
             BookCoverRepository bookCoverRepository,
-            SeriesRepository seriesRepository) {
+            SeriesRepository seriesRepository,
+            AuditService auditService) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -106,6 +115,7 @@ public class BookServiceImpl implements BookService {
         this.eventPublisher = eventPublisher;
         this.bookCoverRepository = bookCoverRepository;
         this.seriesRepository = seriesRepository;
+        this.auditService = auditService;
     }
 
     @Override
@@ -210,9 +220,10 @@ public class BookServiceImpl implements BookService {
 
 
     @Override
-    public OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request) {
+    public OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request, UUID editorId) {
         OriginalBook book = originalBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", id));
+        Map<String, Object> before = snapshot(book);
 
         // ISBN 검증 및 중복 검사 (변경된 경우)
         if (request.isbn() != null) {
@@ -281,6 +292,7 @@ public class BookServiceImpl implements BookService {
                 userId
         ));
 
+        logEdit(savedBook, before, editorId);
         return savedBook;
     }
 
@@ -438,9 +450,10 @@ public class BookServiceImpl implements BookService {
 
 
     @Override
-    public TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request) {
+    public TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request, UUID editorId) {
         TranslatedBook book = translatedBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", id));
+        Map<String, Object> before = snapshot(book);
 
         // ISBN 검증 및 중복 검사 (변경된 경우)
         if (request.isbn() != null) {
@@ -507,6 +520,7 @@ public class BookServiceImpl implements BookService {
                 userId
         ));
 
+        logEdit(savedBook, before, editorId);
         return savedBook;
     }
 
@@ -617,6 +631,10 @@ public class BookServiceImpl implements BookService {
         applyCredits(cover, request.credits());
         BookCover saved = bookCoverRepository.save(cover);
         book.getCovers().add(saved);
+        if (userId != null) {
+            auditService.logUpdate(auditTypeOf(book), book.getId(), userId, null,
+                    toJson(Map.of("addedCover", coverSnapshot(saved))));
+        }
 
         if (userId != null) {
             contributionService.incrementContribution(userId);
@@ -628,8 +646,9 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public void setRepresentativeCover(UUID bookId, UUID coverId) {
+    public void setRepresentativeCover(UUID bookId, UUID coverId, UUID userId) {
         Media book = findActiveBook(bookId);
+        Map<String, Object> before = snapshot(book);
         BookCover cover = bookCoverRepository.findById(coverId)
                 .orElseThrow(() -> new ResourceNotFoundException("BookCover", coverId));
         if (cover.getBook() == null || !cover.getBook().getId().equals(bookId)) {
@@ -637,6 +656,7 @@ public class BookServiceImpl implements BookService {
         }
         book.setFrontCover(cover);
         book.setUpdatedAt(Instant.now());
+        logEdit(book, before, userId);
 
         // 검색 인덱스의 썸네일이 대표 표지를 따라가도록 수정 이벤트 발행
         publishBookUpdated(book);
@@ -766,6 +786,97 @@ public class BookServiceImpl implements BookService {
         wanted.stream()
                 .filter(c -> !existingKeys.contains(creditKey(c.getDesigner(), c.getRole())))
                 .forEach(cover.getCredits()::add);
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * 위키식 편집 기록. 수정 전후 스냅샷에서 바뀐 항목만 감사 로그에 남긴다 (조회: GET /admin/dashboard/logs/entity/{type}/{id}).
+     * 이전 값(previousValue)을 그대로 남기므로 장난성 수정을 관리자가 보고 되돌릴 수 있다.
+     */
+    // ponytail: 되돌리기는 수동(이전 값을 보고 PUT). 반복되면 로그 id로 되돌리는 관리자 API를 추가
+    private void logEdit(Media book, Map<String, Object> before, UUID userId) {
+        if (userId == null) {
+            return;
+        }
+        Map<String, Object> after = snapshot(book);
+        Map<String, Object> previous = new LinkedHashMap<>();
+        Map<String, Object> changed = new LinkedHashMap<>();
+        after.forEach((key, value) -> {
+            if (!Objects.equals(before.get(key), value)) {
+                previous.put(key, before.get(key));
+                changed.put(key, value);
+            }
+        });
+        if (!changed.isEmpty()) {
+            auditService.logUpdate(auditTypeOf(book), book.getId(), userId, toJson(previous), toJson(changed));
+        }
+    }
+
+    /** 수정 API로 바꿀 수 있는 항목의 스냅샷 (연관은 id로) */
+    private static Map<String, Object> snapshot(Media book) {
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("title", book.getTitle());
+        s.put("countryCode", book.getCountryCode());
+        s.put("languageCode", book.getLanguageCode());
+        s.put("year", book.getYear());
+        s.put("seriesId", book.getSeries() != null ? book.getSeries().getId() : null);
+        s.put("seriesNumber", book.getSeriesNumber());
+        BookCover backCover = null;
+        if (book instanceof OriginalBook ob) {
+            s.put("originalTitle", ob.getOriginalTitle());
+            s.put("genre", ob.getGenre());
+            s.put("isbn", ob.getIsbn());
+            s.put("edition", ob.getEdition());
+            s.put("authorId", ob.getAuthor() != null ? ob.getAuthor().getId() : null);
+            s.put("publisherId", ob.getPublisher() != null ? ob.getPublisher().getId() : null);
+            s.put("workId", ob.getWork() != null ? ob.getWork().getId() : null);
+            backCover = ob.getBackCover();
+        } else if (book instanceof TranslatedBook tb) {
+            s.put("isbn", tb.getIsbn());
+            s.put("edition", tb.getEdition());
+            s.put("authorId", tb.getAuthor() != null ? tb.getAuthor().getId() : null);
+            s.put("translatorId", tb.getTranslator() != null ? tb.getTranslator().getId() : null);
+            s.put("publisherId", tb.getPublisher() != null ? tb.getPublisher().getId() : null);
+            backCover = tb.getBackCover();
+        }
+        s.put("frontCover", coverSnapshot(book.getFrontCover()));
+        s.put("backCover", coverSnapshot(backCover));
+        return s;
+    }
+
+    private static Map<String, Object> coverSnapshot(BookCover cover) {
+        if (cover == null) {
+            return null;
+        }
+        Map<String, Object> s = new LinkedHashMap<>();
+        s.put("id", cover.getId());
+        s.put("imageUrl", cover.getImageUrl());
+        s.put("thumbnailUrl", cover.getThumbnailUrl());
+        s.put("sourceUrl", cover.getSourceUrl());
+        s.put("credits", cover.getCredits().stream()
+                .map(c -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("designerId", c.getDesigner().getId());
+                    m.put("name", c.getDesigner().getName());
+                    m.put("role", c.getRole());
+                    return m;
+                })
+                .sorted(Comparator.comparing((Map<String, Object> m) -> m.get("designerId") + ":" + m.get("role")))
+                .toList());
+        return s;
+    }
+
+    private static AuditEntityType auditTypeOf(Media book) {
+        return book instanceof OriginalBook ? AuditEntityType.ORIGINAL_BOOK : AuditEntityType.TRANSLATED_BOOK;
+    }
+
+    private static String toJson(Object value) {
+        try {
+            return JSON.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize audit value", e);
+        }
     }
 
     private static final int MAX_CREDITS_PER_COVER = 20;
