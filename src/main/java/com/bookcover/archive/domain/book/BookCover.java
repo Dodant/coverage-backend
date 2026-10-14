@@ -1,15 +1,20 @@
 package com.bookcover.archive.domain.book;
 
+import com.bookcover.archive.domain.media.Media;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -79,6 +84,53 @@ public class BookCover {
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    /** 이 표지가 속한 책 (같은 ISBN의 표지 변형들을 묶음). 뒷면 커버는 null */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "book_id")
+    private Media book;
+
+    /** 표지 변형 설명 (예: "10쇄 리커버", "영화 개봉 특별판") */
+    @Column(length = 100)
+    private String label;
+
+    /** 이 표지가 처음 쓰인 쇄 */
+    private Integer printingFrom;
+
+    /** 이 표지가 쓰이기 시작한 날짜 */
+    private LocalDate usedFrom;
+
+    public Media getBook() {
+        return book;
+    }
+
+    public void setBook(Media book) {
+        this.book = book;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public Integer getPrintingFrom() {
+        return printingFrom;
+    }
+
+    public void setPrintingFrom(Integer printingFrom) {
+        this.printingFrom = printingFrom;
+    }
+
+    public LocalDate getUsedFrom() {
+        return usedFrom;
+    }
+
+    public void setUsedFrom(LocalDate usedFrom) {
+        this.usedFrom = usedFrom;
+    }
 
     // Getters and Setters
 

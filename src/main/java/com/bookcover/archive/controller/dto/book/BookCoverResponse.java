@@ -6,6 +6,7 @@ import com.bookcover.archive.domain.book.CoverType;
 import com.bookcover.archive.domain.book.ImageSource;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -26,7 +27,10 @@ public record BookCoverResponse(
     CoverLayout layout,
     Integer likeCount,
     Integer commentCount,
-    Instant createdAt
+    Instant createdAt,
+    String label,
+    Integer printingFrom,
+    LocalDate usedFrom
 ) {
     public static BookCoverResponse from(BookCover cover) {
         if (cover == null) {
@@ -47,7 +51,10 @@ public record BookCoverResponse(
             cover.getLayout(),
             cover.getLikeCount(),
             cover.getCommentCount(),
-            cover.getCreatedAt()
+            cover.getCreatedAt(),
+            cover.getLabel(),
+            cover.getPrintingFrom(),
+            cover.getUsedFrom()
         );
     }
 }
