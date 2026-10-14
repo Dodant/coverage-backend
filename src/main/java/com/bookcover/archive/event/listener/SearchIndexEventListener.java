@@ -54,18 +54,12 @@ public class SearchIndexEventListener {
             topics = KafkaConfig.TOPIC_CONTENT_EVENTS,
             groupId = "search-index-sync"
     )
-    public void handleContentEvent(String message) {
-        try {
-            ContentEvent event = objectMapper.readValue(message, ContentEvent.class);
-            log.debug("Received content event: {} for entity {}", event.eventType(), event.entityId());
+    public void handleContentEvent(String message) throws JsonProcessingException {
+        // 예외를 삼키지 않는다: KafkaConfig의 에러 핸들러가 재시도 후 DLT로 보낸다
+        ContentEvent event = objectMapper.readValue(message, ContentEvent.class);
+        log.debug("Received content event: {} for entity {}", event.eventType(), event.entityId());
 
-            processContentEvent(event);
-
-        } catch (JsonProcessingException e) {
-            log.error("Failed to deserialize content event: {}", message, e);
-        } catch (Exception e) {
-            log.error("Failed to process content event: {}", message, e);
-        }
+        processContentEvent(event);
     }
 
     private void processContentEvent(ContentEvent event) {

@@ -279,8 +279,7 @@ public class EntityManagementServiceImpl implements EntityManagementService {
         coverCreditRepository.deleteOverlapping(sourceId, targetId);
         coverCreditRepository.reassign(sourceId, target);
 
-        // ponytail: 커밋 전에 발행하므로 컨슈머가 먼저 읽으면 옛 크레딧으로 색인될 수 있다 (기존 이벤트 발행과 같은 한계).
-        // 어긋나면 POST /admin/search/reindex로 맞춘다
+        // 이벤트는 커밋 후 발행된다(KafkaEventPublisher). 유실·DLT로 어긋나면 POST /admin/search/reindex로 맞춘다
         originalIds.forEach(id -> eventPublisher.publishContentEvent(
                 new ContentEvent(ContentEventType.ORIGINAL_BOOK_UPDATED, id, performedById)));
         translatedIds.forEach(id -> eventPublisher.publishContentEvent(

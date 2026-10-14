@@ -1,9 +1,14 @@
 package com.bookcover.archive.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * Kafka 설정 클래스.
@@ -37,6 +42,29 @@ public class KafkaConfig {
     @Bean
     public NewTopic searchIndexEventsTopic() {
         return TopicBuilder.name(TOPIC_SEARCH_INDEX_EVENTS)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /**
+     * 리스너 예외 시 1초 간격 3회 재시도 후 {@code <토픽>.DLT}로 보낸다.
+     * 역직렬화 실패는 재시도해도 같으므로 바로 DLT로 보낸다.
+     * Spring Boot가 이 빈을 기본 리스너 컨테이너 팩토리에 적용한다.
+     */
+    // ponytail: DLT는 쌓이기만 한다. 재처리는 수동(또는 POST /admin/search/reindex). 자주 쌓이면 DLT 재발행 관리자 API를 추가
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
+        DefaultErrorHandler handler = new DefaultErrorHandler(
+                new DeadLetterPublishingRecoverer(kafkaTemplate), new FixedBackOff(1000L, 3));
+        handler.addNotRetryableExceptions(JsonProcessingException.class);
+        return handler;
+    }
+
+    @Bean
+    public NewTopic contentEventsDltTopic() {
+        // DeadLetterPublishingRecoverer는 원본과 같은 파티션 번호로 보내므로 파티션 수를 맞춘다
+        return TopicBuilder.name(TOPIC_CONTENT_EVENTS + ".DLT")
                 .partitions(3)
                 .replicas(1)
                 .build();
