@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -41,10 +42,14 @@ public record CreateTranslatedBookRequest(
     UUID publisherId,
     String publisherName,
 
-    UUID designerId,
-    String designerName,
-
     String edition,
+
+    UUID seriesId,
+    /** seriesId가 없으면 출판사 안에서 이름으로 찾거나 새로 만든다 */
+    String seriesName,
+    @Size(max = 20, message = "시리즈 권 번호는 20자 이하여야 합니다")
+    String seriesNumber,
+
 
     @NotNull(message = "앞면 북커버 정보는 필수입니다")
     BookCoverInfo frontCover,
@@ -70,6 +75,9 @@ public record CreateTranslatedBookRequest(
         Integer height,
         Long fileSize,
         ImageSource imageSource,
-        String sourceUrl
+        String sourceUrl,
+
+        /** 역할별 크레딧 */
+        List<CreditInfo> credits
     ) {}
 }

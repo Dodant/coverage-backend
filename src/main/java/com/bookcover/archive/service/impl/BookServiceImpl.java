@@ -1,8 +1,11 @@
 package com.bookcover.archive.service.impl;
 
 import com.bookcover.archive.domain.book.BookCover;
+import com.bookcover.archive.domain.book.CoverCredit;
 import com.bookcover.archive.domain.book.CoverType;
+import com.bookcover.archive.domain.book.CreditRole;
 import com.bookcover.archive.domain.book.OriginalBook;
+import com.bookcover.archive.domain.book.Series;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.book.Work;
 import com.bookcover.archive.domain.common.ContentStatus;
@@ -24,6 +27,7 @@ import com.bookcover.archive.repository.BookSearchRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.PublisherRepository;
+import com.bookcover.archive.repository.SeriesRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.repository.TranslatorRepository;
 import com.bookcover.archive.repository.UserRepository;
@@ -33,6 +37,7 @@ import com.bookcover.archive.service.ContributionService;
 import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
 import com.bookcover.archive.service.dto.CreateTranslatedBookRequest;
+import com.bookcover.archive.service.dto.CreditInfo;
 import com.bookcover.archive.service.dto.UpdateOriginalBookRequest;
 import com.bookcover.archive.service.dto.UpdateTranslatedBookRequest;
 import com.bookcover.archive.validation.IsbnValidator;
@@ -42,9 +47,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -67,6 +75,7 @@ public class BookServiceImpl implements BookService {
     private final ContributionService contributionService;
     private final EventPublisher eventPublisher;
     private final BookCoverRepository bookCoverRepository;
+    private final SeriesRepository seriesRepository;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -81,7 +90,8 @@ public class BookServiceImpl implements BookService {
             IsbnValidator isbnValidator,
             ContributionService contributionService,
             EventPublisher eventPublisher,
-            BookCoverRepository bookCoverRepository) {
+            BookCoverRepository bookCoverRepository,
+            SeriesRepository seriesRepository) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -95,6 +105,7 @@ public class BookServiceImpl implements BookService {
         this.contributionService = contributionService;
         this.eventPublisher = eventPublisher;
         this.bookCoverRepository = bookCoverRepository;
+        this.seriesRepository = seriesRepository;
     }
 
     @Override
@@ -150,20 +161,9 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        // 디자이너 연결
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
-        } else if (request.designerName() != null && !request.designerName().isBlank()) {
-            Designer designer = designerRepository.findByName(request.designerName())
-                    .orElseGet(() -> {
-                        Designer newDesigner = new Designer();
-                        newDesigner.setName(request.designerName());
-                        return designerRepository.save(newDesigner);
-                    });
-            book.setDesigner(designer);
-        }
+        // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
+        book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
+        book.setSeriesNumber(request.seriesNumber());
 
         // 작품 연결
         if (request.workId() != null) {
@@ -246,11 +246,10 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
+        if (request.seriesId() != null) {
+            book.setSeries(resolveSeries(request.seriesId(), null, null));
         }
+        if (request.seriesNumber() != null) book.setSeriesNumber(request.seriesNumber());
 
         if (request.workId() != null) {
             Work work = workRepository.findById(request.workId())
@@ -397,20 +396,9 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        // 디자이너 연결
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
-        } else if (request.designerName() != null && !request.designerName().isBlank()) {
-            Designer designer = designerRepository.findByName(request.designerName())
-                    .orElseGet(() -> {
-                        Designer newDesigner = new Designer();
-                        newDesigner.setName(request.designerName());
-                        return designerRepository.save(newDesigner);
-                    });
-            book.setDesigner(designer);
-        }
+        // 시리즈 연결 (출판사가 정해진 뒤에 해야 이름으로 찾을 때 출판사 범위가 맞는다)
+        book.setSeries(resolveSeries(request.seriesId(), request.seriesName(), book.getPublisher()));
+        book.setSeriesNumber(request.seriesNumber());
 
         // 등록자 연결
         if (request.createdById() != null) {
@@ -490,11 +478,10 @@ public class BookServiceImpl implements BookService {
             book.setPublisher(publisher);
         }
 
-        if (request.designerId() != null) {
-            Designer designer = designerRepository.findById(request.designerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Designer", request.designerId()));
-            book.setDesigner(designer);
+        if (request.seriesId() != null) {
+            book.setSeries(resolveSeries(request.seriesId(), null, null));
         }
+        if (request.seriesNumber() != null) book.setSeriesNumber(request.seriesNumber());
 
         if (request.frontCover() != null) {
             updateBookCover(book.getFrontCover(), request.frontCover());
@@ -633,12 +620,16 @@ public class BookServiceImpl implements BookService {
             cover.setLanguageCode(request.languageCode().trim().toLowerCase());
         }
         cover.setBook(book);
+        applyCredits(cover, request.credits());
         BookCover saved = bookCoverRepository.save(cover);
         book.getCovers().add(saved);
 
         if (userId != null) {
             contributionService.incrementContribution(userId);
         }
+
+        // 새 표지의 크레딧이 검색 인덱스에 반영되도록 수정 이벤트 발행
+        publishBookUpdated(book);
         return saved;
     }
 
@@ -654,10 +645,14 @@ public class BookServiceImpl implements BookService {
         book.setUpdatedAt(Instant.now());
 
         // 검색 인덱스의 썸네일이 대표 표지를 따라가도록 수정 이벤트 발행
+        publishBookUpdated(book);
+    }
+
+    private void publishBookUpdated(Media book) {
         UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
         eventPublisher.publishContentEvent(new ContentEvent(
                 book instanceof OriginalBook ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED,
-                bookId,
+                book.getId(),
                 userId
         ));
     }
@@ -695,6 +690,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
         return cover;
     }
 
@@ -709,6 +705,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
         return cover;
     }
 
@@ -721,6 +718,7 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
     }
 
     private void updateBookCover(BookCover cover, UpdateTranslatedBookRequest.BookCoverUpdateInfo info) {
@@ -732,5 +730,81 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        applyCredits(cover, info.credits());
+    }
+
+    /**
+     * 표지 크레딧을 요청 목록과 같게 맞춘다. credits가 null이면 그대로 둔다.
+     * 전부 지우고 다시 넣으면 flush 때 INSERT가 DELETE보다 먼저 나가 유니크 제약에 걸리므로,
+     * 그대로인 (디자이너, 역할)은 남기고 차이만 반영한다.
+     */
+    private void applyCredits(BookCover cover, List<CreditInfo> credits) {
+        if (credits == null) {
+            return;
+        }
+        List<CoverCredit> wanted = new ArrayList<>();
+        Set<String> wantedKeys = new HashSet<>();
+        for (CreditInfo info : credits) {
+            if (info.role() == null) {
+                throw new ValidationException("Credit role is required", Map.of());
+            }
+            Designer designer = resolveDesigner(info.designerId(), info.designerName());
+            if (designer == null) {
+                throw new ValidationException("Credit requires designerId or designerName",
+                        Map.of("role", info.role().name()));
+            }
+            if (wantedKeys.add(creditKey(designer, info.role()))) {
+                wanted.add(new CoverCredit(cover, designer, info.role()));
+            }
+        }
+
+        cover.getCredits().removeIf(c -> !wantedKeys.contains(creditKey(c.getDesigner(), c.getRole())));
+        Set<String> existingKeys = new HashSet<>();
+        cover.getCredits().forEach(c -> existingKeys.add(creditKey(c.getDesigner(), c.getRole())));
+        wanted.stream()
+                .filter(c -> !existingKeys.contains(creditKey(c.getDesigner(), c.getRole())))
+                .forEach(cover.getCredits()::add);
+    }
+
+    private static String creditKey(Designer designer, CreditRole role) {
+        return designer.getId() + ":" + role;
+    }
+
+    private Designer resolveDesigner(UUID designerId, String designerName) {
+        if (designerId != null) {
+            return designerRepository.findById(designerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Designer", designerId));
+        }
+        if (designerName == null || designerName.isBlank()) {
+            return null;
+        }
+        String name = designerName.trim();
+        return designerRepository.findByName(name)
+                .orElseGet(() -> {
+                    Designer newDesigner = new Designer();
+                    newDesigner.setName(name);
+                    return designerRepository.save(newDesigner);
+                });
+    }
+
+    /** seriesId가 있으면 그것을, 없으면 출판사 안에서 이름으로 찾거나 새로 만든다 */
+    private Series resolveSeries(UUID seriesId, String seriesName, Publisher publisher) {
+        if (seriesId != null) {
+            return seriesRepository.findById(seriesId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Series", seriesId));
+        }
+        if (seriesName == null || seriesName.isBlank()) {
+            return null;
+        }
+        String name = seriesName.trim();
+        Optional<Series> existing = publisher != null
+                ? seriesRepository.findByNameAndPublisherId(name, publisher.getId())
+                : seriesRepository.findByNameAndPublisherIsNull(name);
+        return existing.orElseGet(() -> {
+            Series series = new Series();
+            series.setName(name);
+            series.setPublisher(publisher);
+            return seriesRepository.save(series);
+        });
     }
 }

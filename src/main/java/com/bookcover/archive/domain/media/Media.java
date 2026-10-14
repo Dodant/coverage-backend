@@ -1,6 +1,7 @@
 package com.bookcover.archive.domain.media;
 
 import com.bookcover.archive.domain.book.BookCover;
+import com.bookcover.archive.domain.book.Series;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.user.User;
 import jakarta.persistence.Column;
@@ -14,6 +15,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
@@ -62,6 +64,15 @@ public abstract class Media {
     @Column(nullable = false)
     private ContentStatus status = ContentStatus.PUBLISHED;
 
+    /** 시리즈·총서 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "series_id")
+    private Series series;
+
+    /** 시리즈 내 권 번호 (예: "123", "3-1") */
+    @Column(length = 20)
+    private String seriesNumber;
+
     /** 등록한 회원 */
     @ManyToOne(fetch = FetchType.LAZY)
     private User createdBy;
@@ -83,6 +94,22 @@ public abstract class Media {
 
     public List<BookCover> getCovers() {
         return covers;
+    }
+
+    public Series getSeries() {
+        return series;
+    }
+
+    public void setSeries(Series series) {
+        this.series = series;
+    }
+
+    public String getSeriesNumber() {
+        return seriesNumber;
+    }
+
+    public void setSeriesNumber(String seriesNumber) {
+        this.seriesNumber = seriesNumber;
     }
 
     // Getters and Setters

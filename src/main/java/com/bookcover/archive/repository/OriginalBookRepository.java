@@ -49,7 +49,6 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
     @Query(value = "SELECT ob FROM OriginalBook ob " +
         "LEFT JOIN FETCH ob.author " +
         "LEFT JOIN FETCH ob.publisher " +
-        "LEFT JOIN FETCH ob.designer " +
         "WHERE ob.author.id = :authorId",
         countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.author.id = :authorId")
     Page<OriginalBook> findByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
@@ -64,13 +63,12 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
     @Query(value = "SELECT ob FROM OriginalBook ob " +
         "LEFT JOIN FETCH ob.author " +
         "LEFT JOIN FETCH ob.publisher " +
-        "LEFT JOIN FETCH ob.designer " +
         "WHERE ob.publisher.id = :publisherId",
         countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.publisher.id = :publisherId")
     Page<OriginalBook> findByPublisherId(@Param("publisherId") UUID publisherId, Pageable pageable);
 
     /**
-     * 디자이너 ID로 원서 목록을 조회합니다.
+     * 표지 크레딧(역할 무관)에 디자이너가 있는 원서 목록을 조회합니다.
      *
      * @param designerId 디자이너 ID
      * @param pageable 페이징 정보
@@ -79,9 +77,8 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
     @Query(value = "SELECT ob FROM OriginalBook ob " +
         "LEFT JOIN FETCH ob.author " +
         "LEFT JOIN FETCH ob.publisher " +
-        "LEFT JOIN FETCH ob.designer " +
-        "WHERE ob.designer.id = :designerId",
-        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.designer.id = :designerId")
+        "WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))",
+        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))")
     Page<OriginalBook> findByDesignerId(@Param("designerId") UUID designerId, Pageable pageable);
 
     /**
@@ -185,5 +182,6 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
      * @param designerId 디자이너 ID
      * @return 원서 수
      */
-    long countByDesignerId(UUID designerId);
+    @Query("SELECT count(ob) FROM OriginalBook ob WHERE EXISTS (SELECT 1 FROM CoverCredit cr WHERE cr.designer.id = :designerId AND (cr.cover.book = ob OR cr.cover = ob.backCover))")
+    long countByDesignerId(@Param("designerId") UUID designerId);
 }

@@ -3,11 +3,13 @@ package com.bookcover.archive.service.dto;
 import com.bookcover.archive.domain.book.ImageSource;
 import com.bookcover.archive.validation.annotation.ValidCountryCode;
 import com.bookcover.archive.validation.annotation.ValidLanguageCode;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 같은 책(ISBN)에 앞면 표지 변형을 추가하는 요청 DTO.
@@ -43,5 +45,8 @@ public record AddCoverRequest(
 
     /** 표지 언어 (ISO 639-1). 없으면 책의 언어를 따른다 */
     @ValidLanguageCode(optional = true, message = "올바른 언어 코드가 아닙니다")
-    String languageCode
+    String languageCode,
+
+    /** 역할별 크레딧 */
+    List<@Valid CreditInfo> credits
 ) {}

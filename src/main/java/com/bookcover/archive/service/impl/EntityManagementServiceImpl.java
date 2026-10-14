@@ -8,6 +8,7 @@ import com.bookcover.archive.domain.contributor.Publisher;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.AuthorRepository;
+import com.bookcover.archive.repository.CoverCreditRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.PublisherRepository;
@@ -37,6 +38,7 @@ public class EntityManagementServiceImpl implements EntityManagementService {
     private final OriginalBookRepository originalBookRepository;
     private final TranslatedBookRepository translatedBookRepository;
     private final AuditService auditService;
+    private final CoverCreditRepository coverCreditRepository;
 
     public EntityManagementServiceImpl(
             AuthorRepository authorRepository,
@@ -44,13 +46,15 @@ public class EntityManagementServiceImpl implements EntityManagementService {
             DesignerRepository designerRepository,
             OriginalBookRepository originalBookRepository,
             TranslatedBookRepository translatedBookRepository,
-            AuditService auditService) {
+            AuditService auditService,
+            CoverCreditRepository coverCreditRepository) {
         this.authorRepository = authorRepository;
         this.publisherRepository = publisherRepository;
         this.designerRepository = designerRepository;
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.auditService = auditService;
+        this.coverCreditRepository = coverCreditRepository;
     }
 
     // 작가 별칭 관리
@@ -241,17 +245,9 @@ public class EntityManagementServiceImpl implements EntityManagementService {
         target.getAliases().addAll(source.getAliases());
         target.addAlias(source.getName());
 
-        // source의 원서들을 target으로 이전
-        originalBookRepository.findByDesignerId(sourceId, null).forEach(book -> {
-            book.setDesigner(target);
-            originalBookRepository.save(book);
-        });
-
-        // source의 번역서들을 target으로 이전
-        translatedBookRepository.findByDesignerId(sourceId, null).forEach(book -> {
-            book.setDesigner(target);
-            translatedBookRepository.save(book);
-        });
+        // source의 표지 크레딧을 target으로 이전 (이미 같은 표지·역할에 target이 있으면 중복 제거)
+        coverCreditRepository.deleteOverlapping(sourceId, targetId);
+        coverCreditRepository.reassign(sourceId, target);
 
         // 감사 로그 기록
         String mergeInfo = String.format("{\"sourceId\":\"%s\",\"sourceName\":\"%s\",\"targetId\":\"%s\",\"targetName\":\"%s\"}",

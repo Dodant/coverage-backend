@@ -1,7 +1,6 @@
 package com.bookcover.archive.domain.book;
 
 import com.bookcover.archive.domain.contributor.Author;
-import com.bookcover.archive.domain.contributor.Designer;
 import com.bookcover.archive.domain.contributor.Publisher;
 import com.bookcover.archive.domain.media.Media;
 import jakarta.persistence.CascadeType;
@@ -25,7 +24,6 @@ import java.util.List;
  * Requirements:
  * - 1.1: 책 제목, 원서 제목, 나라, 언어, 연도, 작가, 출판사, 장르, 앞면 북커버를 필수 항목으로 검증
  * - 1.5: 원서가 성공적으로 등록되면 고유 식별자를 생성하고 데이터베이스에 저장
- * - 1.6: 북커버 디자이너 정보가 제공되면 디자이너 정보를 원서와 연결하여 저장
  * - 1.7: 에디션 정보가 제공되면 에디션 정보를 원서와 연결하여 저장
  */
 @Entity
@@ -54,11 +52,6 @@ public class OriginalBook extends Media {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "publisher_id")
     private Publisher publisher;
-
-    /** 북커버 디자이너 */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "designer_id")
-    private Designer designer;
 
     /** 에디션 정보 (예: 초판, 개정판, 특별판) */
     private String edition;
@@ -122,14 +115,6 @@ public class OriginalBook extends Media {
 
     public void setPublisher(Publisher publisher) {
         this.publisher = publisher;
-    }
-
-    public Designer getDesigner() {
-        return designer;
-    }
-
-    public void setDesigner(Designer designer) {
-        this.designer = designer;
     }
 
     public String getEdition() {

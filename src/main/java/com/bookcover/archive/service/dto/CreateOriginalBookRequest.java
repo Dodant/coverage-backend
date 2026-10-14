@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -13,7 +14,7 @@ import java.util.UUID;
  * Requirements:
  * - 1.1: 책 제목, 원서 제목, 나라, 언어, 연도, 작가, 출판사, 장르, 앞면 북커버를 필수 항목으로 검증
  * - 1.2: ISBN이 제공되는 경우 ISBN 형식을 검증하고 저장
- * - 1.6: 북커버 디자이너 정보가 제공되면 디자이너 정보를 원서와 연결하여 저장
+ * - 1.6: 북커버 디자이너 정보는 표지별 크레딧(BookCoverInfo.credits)으로 저장
  * - 1.7: 에디션 정보가 제공되면 에디션 정보를 원서와 연결하여 저장
  */
 public record CreateOriginalBookRequest(
@@ -45,10 +46,14 @@ public record CreateOriginalBookRequest(
     UUID publisherId,
     String publisherName,
 
-    UUID designerId,
-    String designerName,
-
     String edition,
+
+    UUID seriesId,
+    /** seriesId가 없으면 출판사 안에서 이름으로 찾거나 새로 만든다 */
+    String seriesName,
+    @Size(max = 20, message = "시리즈 권 번호는 20자 이하여야 합니다")
+    String seriesNumber,
+
 
     UUID workId,
 
@@ -76,6 +81,9 @@ public record CreateOriginalBookRequest(
         Integer height,
         Long fileSize,
         ImageSource imageSource,
-        String sourceUrl
+        String sourceUrl,
+
+        /** 역할별 크레딧 */
+        List<CreditInfo> credits
     ) {}
 }

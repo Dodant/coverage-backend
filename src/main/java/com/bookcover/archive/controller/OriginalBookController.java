@@ -81,9 +81,10 @@ public class OriginalBookController {
                 request.authorName(),
                 request.publisherId(),
                 request.publisherName(),
-                request.designerId(),
-                request.designerName(),
                 request.edition(),
+                request.seriesId(),
+                request.seriesName(),
+                request.seriesNumber(),
                 request.workId(),
                 request.frontCover(),
                 request.backCover(),
@@ -235,7 +236,7 @@ public class OriginalBookController {
      * 디자이너별 원서 목록을 조회합니다.
      */
     @GetMapping("/by-designer/{designerId}")
-    @Operation(summary = "디자이너별 원서 조회", description = "특정 디자이너가 디자인한 모든 원서를 조회합니다.")
+    @Operation(summary = "디자이너별 원서 조회", description = "표지 크레딧(역할 무관)에 해당 디자이너가 있는 원서를 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공")
     })

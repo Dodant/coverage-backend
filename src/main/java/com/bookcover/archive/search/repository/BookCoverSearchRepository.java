@@ -90,14 +90,14 @@ public interface BookCoverSearchRepository extends ElasticsearchRepository<BookC
     Page<BookCoverDocument> findByPublisherIdAndStatus(String publisherId, String status, Pageable pageable);
 
     /**
-     * 디자이너 ID로 북커버를 검색합니다.
+     * 표지 크레딧 기여자 ID로 북커버를 검색합니다.
      *
      * @param designerId 디자이너 ID
      * @param status 콘텐츠 상태
      * @param pageable 페이징 정보
      * @return 북커버 문서 페이지
      */
-    Page<BookCoverDocument> findByDesignerIdAndStatus(String designerId, String status, Pageable pageable);
+    Page<BookCoverDocument> findByDesignerIdsAndStatus(String designerId, String status, Pageable pageable);
 
     /**
      * 상태로 모든 북커버를 검색합니다.

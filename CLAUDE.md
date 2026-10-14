@@ -27,7 +27,8 @@ python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 
 - dev는 접속 정보가 yml에 하드코딩(docker-compose 값과 일치). `.env`/`.env.example` 없음. `application-local.yml`은 gitignore 대상.
 - prod는 전부 환경변수: `DATABASE_URL/USERNAME/PASSWORD`, `REDIS_HOST/PORT/PASSWORD`, `ELASTICSEARCH_URIS`, `KAFKA_BOOTSTRAP_SERVERS`, `S3_*`, `JWT_SECRET`(필수), `JWT_EXPIRATION`, `JWT_REFRESH_EXPIRATION`.
 - 레이트 리밋 한도는 `application.yml`의 `rate-limit.{upload,comment,like,report,takedown}`.
-- `ddl-auto`: dev=update, test=create-drop, prod=validate. 마이그레이션 도구 없음.
+- `ddl-auto`: dev=update, test=create-drop, prod=validate. 마이그레이션 도구 없음 — 스키마 변경 시 `scripts/migrations/<날짜>_<이름>.sql`을 멱등하게 작성하고 prod 배포 전에 수동 실행. dev의 update는 컬럼 삭제·데이터 이전을 하지 않는다.
+- ES 인덱스는 없을 때만 매핑과 함께 생성된다. 기존 인덱스에 필드를 추가하면 동적 매핑(standard 분석기)이 되므로 배포 전에 `PUT book_covers/_mapping`으로 먼저 넣는다. 재색인 기능 없음.
 - `open-in-view: true`는 의도적이다. 컨트롤러가 서비스 트랜잭션 밖에서 엔티티→DTO 변환을 하므로 끄면 LazyInitializationException(500)이 난다.
 
 ## 아키텍처

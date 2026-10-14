@@ -76,9 +76,10 @@ public class TranslatedBookController {
                 request.translatorName(),
                 request.publisherId(),
                 request.publisherName(),
-                request.designerId(),
-                request.designerName(),
                 request.edition(),
+                request.seriesId(),
+                request.seriesName(),
+                request.seriesNumber(),
                 request.frontCover(),
                 request.backCover(),
                 userDetails.getId()

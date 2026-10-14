@@ -1,7 +1,6 @@
 package com.bookcover.archive.domain.book;
 
 import com.bookcover.archive.domain.contributor.Author;
-import com.bookcover.archive.domain.contributor.Designer;
 import com.bookcover.archive.domain.contributor.Publisher;
 import com.bookcover.archive.domain.contributor.Translator;
 import com.bookcover.archive.domain.media.Media;
@@ -52,11 +51,6 @@ public class TranslatedBook extends Media {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "publisher_id")
     private Publisher publisher;
-
-    /** 북커버 디자이너 */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "designer_id")
-    private Designer designer;
 
     /** 에디션 정보 (예: 초판, 개정판, 특별판) */
     private String edition;
@@ -111,14 +105,6 @@ public class TranslatedBook extends Media {
 
     public void setPublisher(Publisher publisher) {
         this.publisher = publisher;
-    }
-
-    public Designer getDesigner() {
-        return designer;
-    }
-
-    public void setDesigner(Designer designer) {
-        this.designer = designer;
     }
 
     public String getEdition() {

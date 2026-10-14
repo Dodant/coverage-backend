@@ -68,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/authors/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/publishers/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/designers/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/series/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/tags/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/collections/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/collections/shared/**").permitAll()
