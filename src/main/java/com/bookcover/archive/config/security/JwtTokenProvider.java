@@ -9,8 +9,6 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -27,6 +25,10 @@ import java.util.UUID;
 public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
+    private static final String TYPE_CLAIM = "typ";
+    private static final String USER_ID_CLAIM = "uid";
+    public static final String ACCESS = "access";
+    public static final String REFRESH = "refresh";
 
     private final JwtProperties jwtProperties;
     private final SecretKey secretKey;
@@ -37,22 +39,16 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 인증 정보로부터 액세스 토큰을 생성합니다.
+     * 액세스 토큰을 생성합니다. subject는 이메일, uid 클레임은 사용자 ID.
      */
-    public String generateAccessToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateAccessToken(userDetails.getUsername());
-    }
-
-    /**
-     * 사용자 이메일로 액세스 토큰을 생성합니다.
-     */
-    public String generateAccessToken(String email) {
+    public String generateAccessToken(String email, UUID userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getExpiration());
 
         return Jwts.builder()
                 .subject(email)
+                .claim(TYPE_CLAIM, ACCESS)
+                .claim(USER_ID_CLAIM, userId.toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -60,14 +56,16 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 리프레시 토큰을 생성합니다.
+     * 리프레시 토큰을 생성합니다. subject는 이메일, uid 클레임은 사용자 ID, jti는 1회용 폐기 키.
      */
-    public String generateRefreshToken(String email) {
+    public String generateRefreshToken(String email, UUID userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtProperties.getRefreshExpiration());
 
         return Jwts.builder()
                 .subject(email)
+                .claim(TYPE_CLAIM, REFRESH)
+                .claim(USER_ID_CLAIM, userId.toString())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -76,28 +74,19 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 토큰에서 사용자 이메일을 추출합니다.
+     * 서명·만료를 검증하고 토큰 종류가 일치하면 클레임을 반환합니다.
+     * access/refresh를 서로 대신 쓰지 못하게 한다. 종류 클레임이 없는 옛 토큰은 거부한다(재로그인 필요).
+     *
+     * @return 유효하지 않거나 종류가 다르면 null
      */
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
-    }
-
-    /**
-     * 토큰의 유효성을 검증합니다.
-     */
-    public boolean validateToken(String token) {
+    public Claims parse(String token, String expectedType) {
         try {
-            Jwts.parser()
+            Claims claims = Jwts.parser()
                     .verifyWith(secretKey)
                     .build()
-                    .parseSignedClaims(token);
-            return true;
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return expectedType.equals(claims.get(TYPE_CLAIM, String.class)) ? claims : null;
         } catch (SignatureException ex) {
             logger.error("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
@@ -109,19 +98,14 @@ public class JwtTokenProvider {
         } catch (IllegalArgumentException ex) {
             logger.error("JWT claims string is empty");
         }
-        return false;
+        return null;
     }
 
     /**
-     * 토큰의 만료 시간을 반환합니다.
+     * 토큰이 이 사용자에게 발급된 것인지 확인합니다.
+     * subject(이메일)만 믿으면 탈퇴 후 같은 이메일로 재가입한 새 계정에 옛 토큰이 통한다.
      */
-    public Date getExpirationFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getExpiration();
+    public static boolean isIssuedTo(Claims claims, UUID userId) {
+        return userId.toString().equals(claims.get(USER_ID_CLAIM, String.class));
     }
 }

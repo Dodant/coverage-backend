@@ -1,5 +1,6 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.config.security.JwtProperties;
 import com.bookcover.archive.config.security.JwtTokenProvider;
 import com.bookcover.archive.controller.dto.auth.AuthResponse;
@@ -13,14 +14,16 @@ import com.bookcover.archive.domain.user.UserTitle;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.service.AuthService;
+import io.jsonwebtoken.Claims;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,22 +36,27 @@ import java.util.Map;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private static final String REVOKED_KEY_PREFIX = "revoked_refresh:";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final AuthenticationManager authenticationManager;
+    private final StringRedisTemplate redisTemplate;
 
     public AuthServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            JwtTokenProvider jwtTokenProvider,
                            JwtProperties jwtProperties,
-                           AuthenticationManager authenticationManager) {
+                           AuthenticationManager authenticationManager,
+                           StringRedisTemplate redisTemplate) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.jwtProperties = jwtProperties;
         this.authenticationManager = authenticationManager;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -89,8 +97,8 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // 토큰 생성
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getId());
 
         return createAuthResponse(user, accessToken, refreshToken);
     }
@@ -99,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
 
@@ -127,8 +135,8 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(user);
 
             // 토큰 생성
-            String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+            String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getId());
+            String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail(), user.getId());
 
             return createAuthResponse(user, accessToken, refreshToken);
         } catch (BadCredentialsException e) {
@@ -139,26 +147,59 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse refreshToken(TokenRefreshRequest request) {
-        String refreshToken = request.refreshToken();
-
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        Claims claims = jwtTokenProvider.parse(request.refreshToken(), JwtTokenProvider.REFRESH);
+        if (claims == null) {
             throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
         }
 
-        String email = jwtTokenProvider.getEmailFromToken(refreshToken);
+        String email = claims.getSubject();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ValidationException("User not found", Map.of("user", "User not found")));
 
-        // 계정 상태 확인
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        // 탈퇴 후 같은 이메일로 재가입한 계정이면 옛 토큰을 거부
+        if (!JwtTokenProvider.isIssuedTo(claims, user.getId())) {
+            throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
+        }
+
+        // 계정 상태 확인 (정지 만료 판단은 로그인·필터와 같은 CustomUserDetails 규칙)
+        CustomUserDetails account = new CustomUserDetails(user);
+        if (!account.isEnabled() || !account.isAccountNonLocked()) {
             throw new ValidationException("Account not active", Map.of("account", "Account is not active"));
         }
 
+        // 리프레시 토큰은 1회용: 검증을 모두 통과한 뒤 발급 직전에 폐기한다.
+        // 실패한 요청이 토큰을 태우지 않고, 동시 갱신은 setIfAbsent로 하나만 성공한다
+        if (!revoke(claims)) {
+            throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
+        }
+
         // 새 토큰 생성
-        String newAccessToken = jwtTokenProvider.generateAccessToken(email);
-        String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
+        String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getId());
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(email, user.getId());
 
         return createAuthResponse(user, newAccessToken, newRefreshToken);
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+        Claims claims = jwtTokenProvider.parse(refreshToken, JwtTokenProvider.REFRESH);
+        if (claims != null) {
+            revoke(claims);
+        }
+    }
+
+    /**
+     * 리프레시 토큰의 jti를 남은 유효기간 동안 Redis에 폐기 표시한다.
+     *
+     * @return 이번 호출로 폐기했으면 true, 이미 폐기된 토큰이면 false (동시 갱신 시 한 요청만 성공)
+     */
+    private boolean revoke(Claims claims) {
+        long ttlMillis = claims.getExpiration().getTime() - System.currentTimeMillis();
+        if (ttlMillis <= 0 || claims.getId() == null) {
+            return false;
+        }
+        return Boolean.TRUE.equals(redisTemplate.opsForValue()
+                .setIfAbsent(REVOKED_KEY_PREFIX + claims.getId(), "1", Duration.ofMillis(ttlMillis)));
     }
 
     @Override

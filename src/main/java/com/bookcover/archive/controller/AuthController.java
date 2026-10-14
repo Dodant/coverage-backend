@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 인증 API 컨트롤러.
- * 회원가입, 로그인, 토큰 갱신 엔드포인트를 제공합니다.
+ * 회원가입, 로그인, 토큰 갱신, 로그아웃 엔드포인트를 제공합니다.
  *
  * Requirements: 7.1, 7.8
  */
@@ -73,11 +73,24 @@ public class AuthController {
     @Operation(summary = "토큰 갱신", description = "리프레시 토큰으로 새 액세스 토큰을 발급합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "토큰 갱신 성공"),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-            @ApiResponse(responseCode = "401", description = "유효하지 않은 리프레시 토큰")
+            @ApiResponse(responseCode = "400", description = "잘못된 요청, 또는 유효하지 않거나 이미 사용·폐기된 리프레시 토큰")
     })
     public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         AuthResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 리프레시 토큰을 폐기해 현재 기기에서 로그아웃합니다.
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "리프레시 토큰을 폐기합니다. 액세스 토큰은 만료될 때까지 유효하므로 클라이언트에서 지워야 합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "로그아웃 완료 (이미 무효한 토큰이어도 204)"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청")
+    })
+    public ResponseEntity<Void> logout(@Valid @RequestBody TokenRefreshRequest request) {
+        authService.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 }

@@ -71,13 +71,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> findByStatus(UserStatus status, Pageable pageable);
 
     /**
-     * 표시 이름으로 회원을 검색합니다 (대소문자 무시).
+     * 표시 이름으로 회원을 검색합니다 (대소문자 무시, 지정 상태 제외).
      *
      * @param displayName 표시 이름 검색어
+     * @param status 제외할 상태 (탈퇴 회원 제외에 사용)
      * @param pageable 페이징 정보
      * @return 회원 페이지
      */
-    Page<User> findByDisplayNameContainingIgnoreCase(String displayName, Pageable pageable);
+    Page<User> findByDisplayNameContainingIgnoreCaseAndStatusNot(String displayName, UserStatus status, Pageable pageable);
 
     /**
      * 신고 제한된 회원 목록을 조회합니다.

@@ -50,6 +50,15 @@ public interface UserService {
     void changePassword(UUID userId, ChangePasswordRequest request);
 
     /**
+     * 회원 탈퇴. 개인정보를 지우고 "탈퇴한 회원"으로 익명화한다.
+     * 등록한 책·수정 이력·댓글은 위키 기여로 남긴다. 같은 이메일로 다시 가입할 수 있다.
+     *
+     * @param userId 회원 ID
+     * @param password 본인 확인용 현재 비밀번호
+     */
+    void withdraw(UUID userId, String password);
+
+    /**
      * 회원 목록을 조회합니다.
      *
      * @param pageable 페이징 정보
