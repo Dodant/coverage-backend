@@ -1,5 +1,6 @@
 package com.bookcover.archive.domain.media;
 
+import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.user.User;
 import jakarta.persistence.Column;
@@ -14,9 +15,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -66,6 +71,19 @@ public abstract class Media {
 
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
+
+    /** 같은 책(ISBN)의 앞면 표지 변형들. 대표 표지는 getFrontCover() */
+    @OneToMany(mappedBy = "book")
+    @OrderBy("usedFrom ASC, createdAt ASC")
+    private List<BookCover> covers = new ArrayList<>();
+
+    public abstract BookCover getFrontCover();
+
+    public abstract void setFrontCover(BookCover frontCover);
+
+    public List<BookCover> getCovers() {
+        return covers;
+    }
 
     // Getters and Setters
 

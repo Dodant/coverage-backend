@@ -73,7 +73,7 @@ public class OriginalBook extends Media {
     private List<TranslatedBook> translations = new ArrayList<>();
 
     /** 앞면 북커버 (필수) */
-    @OneToOne(cascade = CascadeType.ALL, optional = false, orphanRemoval = true)
+    @OneToOne(cascade = CascadeType.ALL, optional = false)
     @JoinColumn(name = "front_cover_id", nullable = false)
     private BookCover frontCover;
 

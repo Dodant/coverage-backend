@@ -4,6 +4,7 @@ import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -25,6 +26,7 @@ public record TranslatedBookResponse(
     ContributorInfo designer,
     BookCoverResponse frontCover,
     BookCoverResponse backCover,
+    List<BookCoverResponse> covers,
     ContentStatus status,
     Instant createdAt,
     Instant updatedAt
@@ -46,6 +48,7 @@ public record TranslatedBookResponse(
             book.getDesigner() != null ? new ContributorInfo(book.getDesigner().getId(), book.getDesigner().getName()) : null,
             BookCoverResponse.from(book.getFrontCover()),
             book.getBackCover() != null ? BookCoverResponse.from(book.getBackCover()) : null,
+            book.getCovers().stream().map(BookCoverResponse::from).toList(),
             book.getStatus(),
             book.getCreatedAt(),
             book.getUpdatedAt()

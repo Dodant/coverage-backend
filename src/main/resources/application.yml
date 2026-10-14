@@ -5,7 +5,9 @@ spring:
     active: dev
 
   jpa:
-    open-in-view: false
+    # controllers map entities to DTOs after the service tx ends; needs the session kept open
+    # ponytail: OSIV holds a DB connection per request; move mapping into services if pool pressure shows up
+    open-in-view: true
     hibernate:
       ddl-auto: validate
     properties:

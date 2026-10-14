@@ -1,8 +1,10 @@
 package com.bookcover.archive.service;
 
+import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.media.Media;
+import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
 import com.bookcover.archive.service.dto.CreateTranslatedBookRequest;
 import com.bookcover.archive.service.dto.UpdateOriginalBookRequest;
@@ -51,4 +53,8 @@ public interface BookService {
 
     // 작품 그룹화
     void linkToWork(UUID bookId, UUID workId);
+
+    // 표지 변형 (같은 ISBN의 여러 앞면 표지). bookId는 원서/번역서 모두 가능
+    BookCover addCover(UUID bookId, AddCoverRequest request, UUID userId);
+    void setRepresentativeCover(UUID bookId, UUID coverId);
 }

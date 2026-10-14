@@ -19,6 +19,7 @@ import com.bookcover.archive.exception.DuplicateIsbnException;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.AuthorRepository;
+import com.bookcover.archive.repository.BookCoverRepository;
 import com.bookcover.archive.repository.BookSearchRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
@@ -29,6 +30,7 @@ import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.repository.WorkRepository;
 import com.bookcover.archive.service.BookService;
 import com.bookcover.archive.service.ContributionService;
+import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
 import com.bookcover.archive.service.dto.CreateTranslatedBookRequest;
 import com.bookcover.archive.service.dto.UpdateOriginalBookRequest;
@@ -64,6 +66,7 @@ public class BookServiceImpl implements BookService {
     private final IsbnValidator isbnValidator;
     private final ContributionService contributionService;
     private final EventPublisher eventPublisher;
+    private final BookCoverRepository bookCoverRepository;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -77,7 +80,8 @@ public class BookServiceImpl implements BookService {
             BookSearchRepository bookSearchRepository,
             IsbnValidator isbnValidator,
             ContributionService contributionService,
-            EventPublisher eventPublisher) {
+            EventPublisher eventPublisher,
+            BookCoverRepository bookCoverRepository) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -90,6 +94,7 @@ public class BookServiceImpl implements BookService {
         this.isbnValidator = isbnValidator;
         this.contributionService = contributionService;
         this.eventPublisher = eventPublisher;
+        this.bookCoverRepository = bookCoverRepository;
     }
 
     @Override
@@ -176,6 +181,8 @@ public class BookServiceImpl implements BookService {
 
         // 앞면 커버 생성
         BookCover frontCover = createBookCover(request.frontCover(), CoverType.FRONT);
+        frontCover.setBook(book);
+        book.getCovers().add(frontCover);
         book.setFrontCover(frontCover);
 
         // 뒷면 커버 생성 (선택)
@@ -414,6 +421,8 @@ public class BookServiceImpl implements BookService {
 
         // 앞면 커버 생성
         BookCover frontCover = createBookCover(request.frontCover(), CoverType.FRONT);
+        frontCover.setBook(book);
+        book.getCovers().add(frontCover);
         book.setFrontCover(frontCover);
 
         // 뒷면 커버 생성 (선택)
@@ -600,8 +609,62 @@ public class BookServiceImpl implements BookService {
         originalBookRepository.save(book);
     }
 
+    @Override
+    public BookCover addCover(UUID bookId, AddCoverRequest request, UUID userId) {
+        Media book = findActiveBook(bookId);
+
+        BookCover cover = new BookCover();
+        cover.setImageUrl(request.imageUrl());
+        cover.setThumbnailUrl(request.thumbnailUrl());
+        cover.setOriginalFileName(request.originalFileName());
+        cover.setWidth(request.width());
+        cover.setHeight(request.height());
+        cover.setFileSize(request.fileSize());
+        cover.setCoverType(CoverType.FRONT);
+        cover.setImageSource(request.imageSource());
+        cover.setSourceUrl(request.sourceUrl());
+        cover.setLabel(request.label());
+        cover.setPrintingFrom(request.printingFrom());
+        cover.setUsedFrom(request.usedFrom());
+        cover.setBook(book);
+        BookCover saved = bookCoverRepository.save(cover);
+        book.getCovers().add(saved);
+
+        if (userId != null) {
+            contributionService.incrementContribution(userId);
+        }
+        return saved;
+    }
+
+    @Override
+    public void setRepresentativeCover(UUID bookId, UUID coverId) {
+        Media book = findActiveBook(bookId);
+        BookCover cover = bookCoverRepository.findById(coverId)
+                .orElseThrow(() -> new ResourceNotFoundException("BookCover", coverId));
+        if (cover.getBook() == null || !cover.getBook().getId().equals(bookId)) {
+            throw new ValidationException("Cover does not belong to this book", Map.of("coverId", coverId.toString()));
+        }
+        book.setFrontCover(cover);
+        book.setUpdatedAt(Instant.now());
+
+        // 검색 인덱스의 썸네일이 대표 표지를 따라가도록 수정 이벤트 발행
+        UUID userId = book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+        eventPublisher.publishContentEvent(new ContentEvent(
+                book instanceof OriginalBook ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED,
+                bookId,
+                userId
+        ));
+    }
+
 
     // Private helper methods
+
+    private Media findActiveBook(UUID id) {
+        return originalBookRepository.findById(id).<Media>map(b -> b)
+                .or(() -> translatedBookRepository.findById(id))
+                .filter(b -> b.getStatus() != ContentStatus.DELETED)
+                .orElseThrow(() -> new ResourceNotFoundException("Book", id));
+    }
 
     private void checkIsbnDuplicate(String isbn) {
         Optional<OriginalBook> existingOriginal = originalBookRepository.findByIsbn(isbn);
