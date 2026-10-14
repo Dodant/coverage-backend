@@ -1,5 +1,6 @@
 package com.bookcover.archive.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +24,7 @@ import java.util.Map;
  * - 14.2: 이미지 해상도가 최소 기준 미만이면 업로드를 거부하고 권장 해상도를 안내한다
  * - 14.6: 이미지 파일 크기가 최대 제한을 초과하면 업로드를 거부하고 파일 크기 제한을 안내한다
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -217,6 +219,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        log.error("Unhandled exception", ex);
         ErrorResponse response = new ErrorResponse(
             ErrorCode.INTERNAL_ERROR,
             "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
