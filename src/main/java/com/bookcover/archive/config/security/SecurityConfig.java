@@ -56,6 +56,8 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // 권리자는 비회원일 수 있음 (IP 단위 레이트 리밋은 TakedownController)
+                        .requestMatchers(HttpMethod.POST, "/takedowns").permitAll()
 
                         // Public read endpoints - GET 요청은 인증 없이 허용
                         .requestMatchers(HttpMethod.GET, "/books/**").permitAll()
