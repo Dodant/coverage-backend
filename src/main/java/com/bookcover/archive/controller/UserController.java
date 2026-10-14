@@ -13,12 +13,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -99,6 +101,27 @@ public class UserController {
             @Valid @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userDetails.getId(), request);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 회원 탈퇴. 본인 확인을 위해 현재 비밀번호를 받는다.
+     */
+    @DeleteMapping("/me")
+    @Operation(summary = "회원 탈퇴", description = "개인정보를 지우고 '탈퇴한 회원'으로 익명화합니다. 등록한 책·수정 이력·댓글은 남습니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "탈퇴 완료"),
+            @ApiResponse(responseCode = "400", description = "비밀번호 불일치"),
+            @ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    public ResponseEntity<Void> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody WithdrawRequest request) {
+        userService.withdraw(userDetails.getId(), request.password());
+        return ResponseEntity.noContent().build();
+    }
+
+    public record WithdrawRequest(@NotBlank(message = "비밀번호를 입력해 주세요") String password) {
     }
 
     /**

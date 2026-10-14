@@ -13,6 +13,8 @@ import com.bookcover.archive.domain.user.UserTitle;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.service.AuthService;
+import io.jsonwebtoken.Claims;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,22 +36,27 @@ import java.util.Map;
 @Service
 public class AuthServiceImpl implements AuthService {
 
+    private static final String REVOKED_KEY_PREFIX = "revoked_refresh:";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final AuthenticationManager authenticationManager;
+    private final StringRedisTemplate redisTemplate;
 
     public AuthServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            JwtTokenProvider jwtTokenProvider,
                            JwtProperties jwtProperties,
-                           AuthenticationManager authenticationManager) {
+                           AuthenticationManager authenticationManager,
+                           StringRedisTemplate redisTemplate) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.jwtProperties = jwtProperties;
         this.authenticationManager = authenticationManager;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -139,13 +147,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse refreshToken(TokenRefreshRequest request) {
-        String refreshToken = request.refreshToken();
+        Claims claims = jwtTokenProvider.parse(request.refreshToken(), JwtTokenProvider.REFRESH);
 
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        // 리프레시 토큰은 1회용: 사용과 동시에 폐기해 탈취된 옛 토큰·로그아웃한 토큰을 막는다
+        if (claims == null || !revoke(claims)) {
             throw new ValidationException("Invalid refresh token", Map.of("refreshToken", "Refresh token is invalid or expired"));
         }
 
-        String email = jwtTokenProvider.getEmailFromToken(refreshToken);
+        String email = claims.getSubject();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ValidationException("User not found", Map.of("user", "User not found")));
 
@@ -159,6 +168,28 @@ public class AuthServiceImpl implements AuthService {
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
 
         return createAuthResponse(user, newAccessToken, newRefreshToken);
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+        Claims claims = jwtTokenProvider.parse(refreshToken, JwtTokenProvider.REFRESH);
+        if (claims != null) {
+            revoke(claims);
+        }
+    }
+
+    /**
+     * 리프레시 토큰의 jti를 남은 유효기간 동안 Redis에 폐기 표시한다.
+     *
+     * @return 이번 호출로 폐기했으면 true, 이미 폐기된 토큰이면 false (동시 갱신 시 한 요청만 성공)
+     */
+    private boolean revoke(Claims claims) {
+        long ttlMillis = claims.getExpiration().getTime() - System.currentTimeMillis();
+        if (ttlMillis <= 0 || claims.getId() == null) {
+            return false;
+        }
+        return Boolean.TRUE.equals(redisTemplate.opsForValue()
+                .setIfAbsent(REVOKED_KEY_PREFIX + claims.getId(), "1", Duration.ofMillis(ttlMillis)));
     }
 
     @Override

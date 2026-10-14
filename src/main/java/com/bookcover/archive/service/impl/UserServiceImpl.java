@@ -3,6 +3,7 @@ package com.bookcover.archive.service.impl;
 import com.bookcover.archive.controller.dto.user.ChangePasswordRequest;
 import com.bookcover.archive.controller.dto.user.UpdateProfileRequest;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.user.UserStatus;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.UserRepository;
@@ -101,6 +102,27 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public void withdraw(UUID userId, String password) {
+        User user = getUserById(userId);
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new ValidationException("Invalid password",
+                    Map.of("password", "Password is incorrect"));
+        }
+
+        // email은 unique·not null이라 id 기반 자리표시자로 바꿔 원래 이메일을 재가입에 풀어준다.
+        // 이메일이 바뀌므로 남은 액세스·리프레시 토큰도 사용자 조회에 실패해 무효가 된다.
+        user.setEmail("deleted-" + user.getId() + "@deleted.invalid");
+        user.setDisplayName("탈퇴한 회원");
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setWebsiteUrl(null);
+        user.setPortfolioUrl(null);
+        user.getSnsAccounts().clear();
+        user.setStatus(UserStatus.DELETED);
+        userRepository.save(user);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<User> getUsers(Pageable pageable) {
         return userRepository.findAll(pageable);
@@ -109,6 +131,6 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public Page<User> searchByDisplayName(String displayName, Pageable pageable) {
-        return userRepository.findByDisplayNameContainingIgnoreCase(displayName, pageable);
+        return userRepository.findByDisplayNameContainingIgnoreCaseAndStatusNot(displayName, UserStatus.DELETED, pageable);
     }
 }

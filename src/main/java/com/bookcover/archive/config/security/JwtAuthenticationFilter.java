@@ -1,5 +1,6 @@
 package com.bookcover.archive.config.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,9 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
-                String email = jwtTokenProvider.getEmailFromToken(jwt);
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            Claims claims = StringUtils.hasText(jwt) ? jwtTokenProvider.parse(jwt, JwtTokenProvider.ACCESS) : null;
+            UserDetails userDetails = claims != null ? userDetailsService.loadUserByUsername(claims.getSubject()) : null;
+
+            // 정지·탈퇴 계정은 발급된 토큰이 남아 있어도 즉시 비로그인으로 처리
+            if (userDetails != null && userDetails.isEnabled()) {
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());

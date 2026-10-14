@@ -13,7 +13,7 @@ docker compose up -d                 # Postgres/Redis/ES/RustFS/Kafka (ES는 첫
 ./gradlew build -x test              # 컴파일+패키징
 ./gradlew test                       # 전체 테스트
 ./gradlew test --tests 'com.bookcover.archive.validation.IsbnValidatorTest'   # 단일 테스트
-python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 검증 (smoke_*.py 3종, 실패 시 non-zero)
+python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 검증 (smoke_*.py, 실패 시 non-zero, `BASE` 환경변수는 smoke_auth만 지원)
 ```
 
 - 헬스체크: `curl localhost:8080/api/actuator/health`, Swagger: `/api/swagger-ui.html`
@@ -45,6 +45,9 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 
 ### 인증과 로그인 사용자 식별
 - `JwtAuthenticationFilter`가 `Authorization: Bearer` 토큰에서 이메일을 꺼내 `CustomUserDetails`를 principal로 설정. Stateless, CSRF off.
+- 토큰에 `typ` 클레임(access/refresh)이 있어 서로 대신 쓸 수 없다. 필터는 매 요청 DB에서 사용자를 다시 읽고 ACTIVE가 아니면(정지·탈퇴) 비로그인으로 처리한다.
+- 리프레시 토큰은 1회용: 갱신·로그아웃 시 jti를 Redis `revoked_refresh:{jti}`(남은 유효기간 TTL)에 넣는다. 액세스 토큰은 폐기 수단이 없어 만료(24h)까지 유효하다.
+- 탈퇴는 익명화(이메일을 `deleted-{id}@deleted.invalid`로 교체, 프로필 삭제, status=DELETED). 책·수정 이력·댓글은 남는다.
 - **principal은 `CustomUserDetails`(String/UUID 아님).** 사용자 ID는 다음 두 가지로만 얻는다:
   - 컨트롤러 파라미터: `@AuthenticationPrincipal CustomUserDetails userDetails` → `userDetails.getId()`
   - 그 외(인터셉터 등): `SecurityUtils.getCurrentUserId()` (`Optional<UUID>`)

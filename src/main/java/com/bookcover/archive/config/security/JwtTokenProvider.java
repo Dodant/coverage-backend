@@ -27,6 +27,9 @@ import java.util.UUID;
 public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
+    private static final String TYPE_CLAIM = "typ";
+    public static final String ACCESS = "access";
+    public static final String REFRESH = "refresh";
 
     private final JwtProperties jwtProperties;
     private final SecretKey secretKey;
@@ -53,6 +56,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(email)
+                .claim(TYPE_CLAIM, ACCESS)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(secretKey)
@@ -68,6 +72,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(email)
+                .claim(TYPE_CLAIM, REFRESH)
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -76,28 +81,19 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 토큰에서 사용자 이메일을 추출합니다.
+     * 서명·만료를 검증하고 토큰 종류가 일치하면 클레임을 반환합니다.
+     * access/refresh를 서로 대신 쓰지 못하게 한다. 종류 클레임이 없는 옛 토큰은 거부한다(재로그인 필요).
+     *
+     * @return 유효하지 않거나 종류가 다르면 null
      */
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
-    }
-
-    /**
-     * 토큰의 유효성을 검증합니다.
-     */
-    public boolean validateToken(String token) {
+    public Claims parse(String token, String expectedType) {
         try {
-            Jwts.parser()
+            Claims claims = Jwts.parser()
                     .verifyWith(secretKey)
                     .build()
-                    .parseSignedClaims(token);
-            return true;
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return expectedType.equals(claims.get(TYPE_CLAIM, String.class)) ? claims : null;
         } catch (SignatureException ex) {
             logger.error("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
@@ -109,19 +105,6 @@ public class JwtTokenProvider {
         } catch (IllegalArgumentException ex) {
             logger.error("JWT claims string is empty");
         }
-        return false;
-    }
-
-    /**
-     * 토큰의 만료 시간을 반환합니다.
-     */
-    public Date getExpirationFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getExpiration();
+        return null;
     }
 }
