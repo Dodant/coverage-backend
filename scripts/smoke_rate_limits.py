@@ -1,6 +1,7 @@
 """Smoke test for per-user rate limits on likes, comments and uploads against a running local backend.
 Clears local rate-limit keys in Redis first so it can be rerun. Exits non-zero on failure."""
-import json, random, subprocess, sys, urllib.request, urllib.error
+import json, random, struct, subprocess, sys, urllib.request, urllib.error, zlib
+from concurrent.futures import ThreadPoolExecutor
 
 B = "http://localhost:8080/api"
 
@@ -30,9 +31,10 @@ def user():
     call("POST", "/auth/signup", {"email": email, "password": "password123", "displayName": "rl", "role": "MEMBER"})
     return json.loads(call("POST", "/auth/login", {"email": email, "password": "password123"})[2])["accessToken"]
 
-def until_limited(n, fn):
-    codes = [fn() for _ in range(n)]
-    return codes
+def png(w=800, h=1200):
+    chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d))
+    rows = zlib.compress(b"".join(b"\0" + b"\x80" * w * 3 for _ in range(h)))
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", rows) + chunk(b"IEND", b"")
 
 subprocess.run("docker exec bookcover-redis sh -c \"redis-cli --scan --pattern 'rate_limit:*' | xargs -r redis-cli del\"",
                shell=True, check=True, capture_output=True)
@@ -46,24 +48,34 @@ s, _, b = call("POST", "/books/original", {
 cover_id = json.loads(b)["frontCover"]["id"]
 
 # comments: 30/min
-codes = until_limited(31, lambda: call("POST", "/comments",
-                                       {"targetType": "ORIGINAL_COVER", "targetId": cover_id, "content": "도배"}, u)[0])
-check("31st comment within a minute -> 429", codes[:30] == [201] * 30 and codes[30] == 429, codes)
+s, _, _ = call("POST", "/comments", {"targetType": "ORIGINAL_COVER", "targetId": cover_id, "content": ""}, u)
+check("rejected comment (400) does not use up the budget", s == 400, s)
+comment = lambda _: call("POST", "/comments", {"targetType": "ORIGINAL_COVER", "targetId": cover_id, "content": "도배"}, u)
+with ThreadPoolExecutor(20) as pool:
+    results = list(pool.map(comment, range(40)))
+codes = [r[0] for r in results]
+check("40 concurrent comments -> exactly 30 accepted", codes.count(201) == 30 and codes.count(429) == 10, sorted(codes))
+cid = json.loads(next(r[2] for r in results if r[0] == 201))["id"]
+s, _, _ = call("PUT", f"/comments/{cid}", {"content": "수정 도배"}, u)
+check("editing comments shares the comment budget -> 429", s == 429, s)
 s, h, _ = call("POST", "/comments", {"targetType": "ORIGINAL_COVER", "targetId": cover_id, "content": "x"}, u)
 check("429 tells the client how long to wait (18.5)", s == 429 and h.get("Retry-After"), dict(h))
 s, _, _ = call("POST", "/comments", {"targetType": "ORIGINAL_COVER", "targetId": cover_id, "content": "다른 사람"}, user())
 check("limit is per user (another user can still comment)", s == 201, s)
 
 # likes: 100/min (toggle)
-codes = until_limited(101, lambda: call("POST", f"/likes/ORIGINAL_COVER/{cover_id}", None, u)[0])
+codes = [call("POST", f"/likes/ORIGINAL_COVER/{cover_id}", None, u)[0] for _ in range(101)]
 check("101st like toggle within a minute -> 429", set(codes[:100]) <= {200, 201} and codes[100] == 429, codes[-3:])
 
-# uploads: 10/hour. Limit is checked before image validation, so junk files are enough
+# uploads: 10/hour, only successful uploads count
 boundary = "----smoke"
-junk = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.jpg\"\r\n"
-        f"Content-Type: image/jpeg\r\n\r\nnot-an-image\r\n--{boundary}--\r\n").encode()
-up = lambda path: call("POST", path, None, u, raw=junk, ctype=f"multipart/form-data; boundary={boundary}")[0]
-codes = [up("/covers") for _ in range(6)] + [up("/covers/redesign") for _ in range(5)]
-check("11th upload within an hour -> 429 (covers + redesigns share the budget)",
-      codes[:10] == [400] * 10 and codes[10] == 429, codes)
+form = lambda name, ctype, body: (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\n"
+                                  f"Content-Type: {ctype}\r\n\r\n").encode() + body + f"\r\n--{boundary}--\r\n".encode()
+junk, good = form("a.jpg", "image/jpeg", b"not-an-image"), form("a.png", "image/png", png())
+up = lambda path, body: call("POST", path, None, u, raw=body, ctype=f"multipart/form-data; boundary={boundary}")[0]
+codes = [up("/covers", junk) for _ in range(11)]
+check("11 rejected uploads (400) do not use up the budget", codes == [400] * 11, codes)
+codes = [up("/covers", good) for _ in range(6)] + [up("/covers/redesign", good) for _ in range(5)]
+check("11th successful upload within an hour -> 429 (covers + redesigns share the budget)",
+      all(200 <= c < 300 for c in codes[:10]) and codes[10] == 429, codes)
 print("ALL PASS")

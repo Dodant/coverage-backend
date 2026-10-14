@@ -59,6 +59,9 @@ rate-limit:
   report:
     limit: 5
     window-seconds: 3600
+  takedown:
+    limit: 5
+    window-seconds: 3600
 
 # Springdoc OpenAPI
 springdoc:

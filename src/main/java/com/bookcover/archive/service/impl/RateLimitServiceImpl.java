@@ -3,18 +3,16 @@ package com.bookcover.archive.service.impl;
 import com.bookcover.archive.config.RateLimitConfig;
 import com.bookcover.archive.exception.RateLimitExceededException;
 import com.bookcover.archive.service.RateLimitAction;
-import com.bookcover.archive.service.RateLimitResult;
 import com.bookcover.archive.service.RateLimitService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.UUID;
+import java.util.List;
 
 /**
  * Redis 기반 레이트 리밋 서비스 구현체.
- * 슬라이딩 윈도우 방식으로 사용자별 액션 제한을 관리합니다.
+ * 고정 윈도우 카운터를 Lua 스크립트로 원자적으로 증가시켜 동시 요청에서도 한도를 넘지 않습니다.
  *
  * Requirements:
  * - 18.1: 댓글, 좋아요, 신고, 업로드에 대해 사용자 단위 레이트 리밋을 적용한다
@@ -24,7 +22,24 @@ import java.util.UUID;
 public class RateLimitServiceImpl implements RateLimitService {
 
     private static final String KEY_PREFIX = "rate_limit:";
-    private static final String RESTRICTED_KEY_PREFIX = "restricted:";
+
+    // INCR와 첫 요청의 EXPIRE를 한 번에 실행. TTL이 없는 키(과거 EXPIRE 실패분)도 여기서 복구된다.
+    // 반환: {현재 횟수, 남은 TTL(초)}
+    private static final RedisScript<List> INCREMENT = RedisScript.of("""
+            local count = redis.call('INCR', KEYS[1])
+            if redis.call('TTL', KEYS[1]) < 0 then
+              redis.call('EXPIRE', KEYS[1], ARGV[1])
+            end
+            return {count, redis.call('TTL', KEYS[1])}
+            """, List.class);
+
+    // 윈도우가 이미 만료됐으면 키를 새로 만들지 않는다 (TTL 없는 음수 키 방지)
+    private static final RedisScript<Long> REFUND = RedisScript.of("""
+            if redis.call('EXISTS', KEYS[1]) == 1 then
+              return redis.call('DECR', KEYS[1])
+            end
+            return 0
+            """, Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final RateLimitConfig rateLimitConfig;
@@ -35,64 +50,29 @@ public class RateLimitServiceImpl implements RateLimitService {
     }
 
     @Override
-    public RateLimitResult checkLimit(UUID userId, RateLimitAction action) {
-        String key = buildKey(userId, action);
+    public void checkAndRecord(String subject, RateLimitAction action) {
         RateLimitConfig.ActionLimit config = getActionConfig(action);
+        List<?> result = redisTemplate.execute(INCREMENT, List.of(buildKey(subject, action)),
+                String.valueOf(config.getWindowSeconds()));
+        long count = ((Number) result.get(0)).longValue();
+        long ttl = ((Number) result.get(1)).longValue();
 
-        Long currentCount = redisTemplate.opsForValue().increment(key, 0);
-        if (currentCount == null) {
-            currentCount = 0L;
-        }
-
-        Long ttl = redisTemplate.getExpire(key);
-        Instant resetTime = calculateResetTime(ttl, config.getWindowSeconds());
-
-        if (currentCount >= config.getLimit()) {
-            return RateLimitResult.denied(resetTime);
-        }
-
-        int remaining = config.getLimit() - currentCount.intValue();
-        return RateLimitResult.allowed(remaining, resetTime);
-    }
-
-    @Override
-    public void recordAction(UUID userId, RateLimitAction action) {
-        String key = buildKey(userId, action);
-        RateLimitConfig.ActionLimit config = getActionConfig(action);
-
-        Long count = redisTemplate.opsForValue().increment(key);
-        if (count != null && count == 1) {
-            // 첫 번째 요청인 경우 TTL 설정
-            redisTemplate.expire(key, Duration.ofSeconds(config.getWindowSeconds()));
-        }
-    }
-
-    @Override
-    public boolean isUserRestricted(UUID userId) {
-        String key = RESTRICTED_KEY_PREFIX + userId.toString();
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
-    }
-
-    @Override
-    public RateLimitResult checkAndRecord(UUID userId, RateLimitAction action) {
-        RateLimitResult result = checkLimit(userId, action);
-
-        if (!result.allowed()) {
-            RateLimitConfig.ActionLimit config = getActionConfig(action);
-            long retryAfterSeconds = calculateRetryAfterSeconds(result.resetTime());
+        if (count > config.getLimit()) {
             throw new RateLimitExceededException(
                     "Rate limit exceeded for " + action.name().toLowerCase(),
-                    retryAfterSeconds,
+                    Math.max(1, ttl),
                     config.getLimit()
             );
         }
-
-        recordAction(userId, action);
-        return result;
     }
 
-    private String buildKey(UUID userId, RateLimitAction action) {
-        return KEY_PREFIX + action.name().toLowerCase() + ":" + userId.toString();
+    @Override
+    public void refund(String subject, RateLimitAction action) {
+        redisTemplate.execute(REFUND, List.of(buildKey(subject, action)));
+    }
+
+    private String buildKey(String subject, RateLimitAction action) {
+        return KEY_PREFIX + action.name().toLowerCase() + ":" + subject;
     }
 
     private RateLimitConfig.ActionLimit getActionConfig(RateLimitAction action) {
@@ -101,18 +81,7 @@ public class RateLimitServiceImpl implements RateLimitService {
             case COMMENT -> rateLimitConfig.getComment();
             case LIKE -> rateLimitConfig.getLike();
             case REPORT -> rateLimitConfig.getReport();
+            case TAKEDOWN -> rateLimitConfig.getTakedown();
         };
-    }
-
-    private Instant calculateResetTime(Long ttl, int windowSeconds) {
-        if (ttl == null || ttl < 0) {
-            return Instant.now().plusSeconds(windowSeconds);
-        }
-        return Instant.now().plusSeconds(ttl);
-    }
-
-    private long calculateRetryAfterSeconds(Instant resetTime) {
-        long seconds = Duration.between(Instant.now(), resetTime).getSeconds();
-        return Math.max(1, seconds);
     }
 }

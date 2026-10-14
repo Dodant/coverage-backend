@@ -56,6 +56,10 @@ s, r = call("POST", "/reports", rep, u1)
 check("report -> 201", s == 201 and r["status"] == "PENDING" and r["targetId"] == bid, (s, r))
 s, _ = call("POST", "/reports", rep, u1)
 check("duplicate report -> 400", s == 400, s)
+for _ in range(5):
+    call("POST", "/reports", rep, u1)
+s, _ = call("POST", "/reports", {**rep, "targetId": book(u1)}, u1)
+check("failed reports (duplicates) do not use up the budget", s == 201, s)
 s, _ = call("POST", "/reports", {**rep, "targetId": "00000000-0000-0000-0000-000000000000"}, u2)
 check("unknown target -> 404", s == 404, s)
 s, _ = call("POST", "/reports", {**rep, "reason": None}, u2)
@@ -77,7 +81,8 @@ td = {"requesterName": "홍길동", "requesterEmail": "rights@publisher.example"
       "targetUrl": f"https://coverage.example/books/{bid}", "targetId": bid,
       "reason": "당사 저작물의 무단 게시", "evidenceUrl": "https://publisher.example/proof.pdf"}
 s, t = call("POST", "/takedowns", td)
-check("anonymous takedown -> 201", s == 201 and t["status"] == "PENDING" and t["requesterEmail"] == td["requesterEmail"], (s, t))
+check("anonymous takedown -> 201 with a minimal receipt", s == 201 and set(t) == {"id", "status", "createdAt"}
+      and t["status"] == "PENDING", (s, t))
 s, _ = call("POST", "/takedowns", {**td, "requesterEmail": "not-an-email"})
 check("bad email -> 400", s == 400, s)
 s, _ = call("POST", "/takedowns", {**td, "targetUrl": "javascript:alert(1)"})

@@ -83,6 +83,7 @@ public class CommentController {
      * 댓글을 수정합니다.
      */
     @PutMapping("/{commentId}")
+    @RateLimited(action = RateLimitAction.COMMENT)
     @Operation(summary = "댓글 수정", description = "댓글 내용을 수정합니다. 작성자만 수정할 수 있습니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({

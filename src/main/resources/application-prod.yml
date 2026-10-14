@@ -60,6 +60,9 @@ logging:
     org.springframework.security: WARN
 
 server:
+  # 로드밸런서의 X-Forwarded-For로 실제 클라이언트 IP를 얻는다 (IP 단위 레이트 리밋에 필요).
+  # native(Tomcat RemoteIpValve)는 사설망 프록시가 보낸 헤더만 신뢰한다.
+  forward-headers-strategy: native
   tomcat:
     max-threads: 200
     accept-count: 100
