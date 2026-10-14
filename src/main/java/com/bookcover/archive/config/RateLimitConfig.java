@@ -15,6 +15,7 @@ public class RateLimitConfig {
     private ActionLimit comment = new ActionLimit(30, 60);
     private ActionLimit like = new ActionLimit(100, 60);
     private ActionLimit report = new ActionLimit(5, 3600);
+    private ActionLimit takedown = new ActionLimit(5, 3600);
 
     public ActionLimit getUpload() {
         return upload;
@@ -46,6 +47,14 @@ public class RateLimitConfig {
 
     public void setReport(ActionLimit report) {
         this.report = report;
+    }
+
+    public ActionLimit getTakedown() {
+        return takedown;
+    }
+
+    public void setTakedown(ActionLimit takedown) {
+        this.takedown = takedown;
     }
 
     /**

@@ -1,8 +1,10 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.domain.social.Comment;
 import com.bookcover.archive.domain.social.CommentTargetType;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.service.SocialService;
 import com.bookcover.archive.service.dto.CreateCommentRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,6 +57,7 @@ public class CommentController {
      * Requirements: 5.1 - 회원이 댓글을 작성하면 댓글 내용, 작성자, 작성 시간을 저장한다
      */
     @PostMapping
+    @RateLimited(action = RateLimitAction.COMMENT)
     @Operation(summary = "댓글 작성", description = "새 댓글을 작성합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -80,6 +83,7 @@ public class CommentController {
      * 댓글을 수정합니다.
      */
     @PutMapping("/{commentId}")
+    @RateLimited(action = RateLimitAction.COMMENT)
     @Operation(summary = "댓글 수정", description = "댓글 내용을 수정합니다. 작성자만 수정할 수 있습니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({

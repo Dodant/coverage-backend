@@ -1,7 +1,9 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.domain.social.LikeTargetType;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.service.SocialService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,6 +45,7 @@ public class LikeController {
      * Requirements: 4.2 - 회원이 이미 좋아요를 누른 북커버에 다시 좋아요를 누르면 좋아요를 취소하고 좋아요 수를 감소시킨다
      */
     @PostMapping("/{targetType}/{targetId}")
+    @RateLimited(action = RateLimitAction.LIKE)
     @Operation(summary = "좋아요 토글", description = "좋아요를 토글합니다. 좋아요가 없으면 추가하고, 있으면 제거합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
