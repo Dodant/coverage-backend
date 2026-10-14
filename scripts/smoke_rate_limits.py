@@ -40,11 +40,12 @@ subprocess.run("docker exec bookcover-redis sh -c \"redis-cli --scan --pattern '
                shell=True, check=True, capture_output=True)
 
 u = user()
+# 책 생성도 업로드 한도(10/시간)를 쓰므로 다른 사용자로 만들어 u의 업로드 예산을 온전히 남긴다
 s, _, b = call("POST", "/books/original", {
     "title": "제한 테스트", "originalTitle": "Limit Test", "countryCode": "KR", "languageCode": "ko",
     "year": 2020, "genre": "novel", "isbn": isbn13(), "authorName": "작가", "publisherName": "출판사",
     "frontCover": {"imageUrl": "http://localhost:9000/b/a.jpg", "thumbnailUrl": "http://localhost:9000/b/a_t.jpg",
-                   "originalFileName": "a.jpg"}}, u)
+                   "originalFileName": "a.jpg"}}, user())
 cover_id = json.loads(b)["frontCover"]["id"]
 
 # comments: 30/min
