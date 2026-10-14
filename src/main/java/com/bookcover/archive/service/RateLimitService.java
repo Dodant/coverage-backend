@@ -20,7 +20,9 @@ public interface RateLimitService {
     void checkAndRecord(String subject, RateLimitAction action);
 
     /**
-     * 실패로 끝난 요청의 기록 1회를 되돌립니다. 이미 만료된 윈도우는 건드리지 않습니다.
+     * 클라이언트 오류(4xx)로 끝난 요청의 기록 1회를 되돌립니다.
+     * 윈도우당 한도의 3배까지만 환불하고, 그 이후 실패는 그대로 한도에 포함됩니다.
+     * 이미 만료된 윈도우는 건드리지 않습니다.
      */
     void refund(String subject, RateLimitAction action);
 }

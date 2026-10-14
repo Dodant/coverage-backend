@@ -13,7 +13,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * 레이트 리밋 인터셉터.
  * @RateLimited 어노테이션이 적용된 컨트롤러 메서드에 레이트 리밋을 적용합니다.
  * 로그인 사용자는 사용자 ID, 비로그인 요청은 IP 단위로 셉니다.
- * 실패(4xx/5xx)로 끝난 요청은 횟수를 되돌려, 검증에 걸린 요청이 한도를 깎지 않게 합니다.
+ * 클라이언트 오류(4xx)로 끝난 요청은 횟수를 되돌려, 검증에 걸린 요청이 한도를 깎지 않게 합니다.
+ * 5xx는 부작용(저장소 업로드 등)이 이미 일어났을 수 있어 환불하지 않습니다.
  *
  * Requirements:
  * - 18.2: 동일 사용자가 짧은 시간 내 반복 신고를 하면 신고를 제한하고 캡차를 요구한다
@@ -54,7 +55,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         if (request.getAttribute(RECORDED_ATTR) instanceof Recorded recorded
-                && (ex != null || response.getStatus() >= 400)) {
+                && ex == null && response.getStatus() >= 400 && response.getStatus() < 500) {
             rateLimitService.refund(recorded.subject(), recorded.action());
         }
     }

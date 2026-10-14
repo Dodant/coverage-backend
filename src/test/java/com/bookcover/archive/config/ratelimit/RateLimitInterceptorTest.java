@@ -90,6 +90,16 @@ class RateLimitInterceptorTest {
     }
 
     @Test
+    void doesNotRefundServerErrors() throws Exception {
+        login();
+        interceptor.preHandle(request, response, handler("limited"));
+        response.setStatus(500);
+        interceptor.afterCompletion(request, response, handler("limited"), null);
+        interceptor.afterCompletion(request, response, handler("limited"), new IllegalStateException());
+        verify(service, never()).refund(any(), any());
+    }
+
+    @Test
     void keepsSuccessfulRequestsCounted() throws Exception {
         login();
         interceptor.preHandle(request, response, handler("limited"));

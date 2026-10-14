@@ -81,7 +81,7 @@ Payloads are JSON strings. Listeners catch and log every exception, so a failed 
 
 - Counters are fixed windows in Redis, key `rate_limit:{action}:{subject}`. `INCR` and `EXPIRE` run in a single Lua script so concurrent requests cannot overshoot the limit and a key cannot lose its TTL.
 - The subject is `user:{uuid}` when logged in, otherwise `ip:{remoteAddr}`. Prod sets `server.forward-headers-strategy: native` so the real client IP is used behind a proxy.
-- If the request ends with an exception or a status ≥ 400, `afterCompletion` refunds one count. Failed validations do not consume quota.
+- If the request ends with a 4xx status, `afterCompletion` refunds one count, up to 3× the limit per window; failures beyond that count against the quota. 5xx responses and unhandled exceptions are not refunded.
 - Actions and limits (`application.yml` → `rate-limit.*`): `UPLOAD` 10/h (covers and redesigns combined), `COMMENT` 30/min (create and edit), `LIKE` 100/min, `REPORT` 5/h, `TAKEDOWN` 5/h.
 - An exceeded limit raises `RateLimitExceededException` → `429` with a `Retry-After` header.
 

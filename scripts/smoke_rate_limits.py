@@ -78,4 +78,10 @@ check("11 rejected uploads (400) do not use up the budget", codes == [400] * 11,
 codes = [up("/covers", good) for _ in range(6)] + [up("/covers/redesign", good) for _ in range(5)]
 check("11th successful upload within an hour -> 429 (covers + redesigns share the budget)",
       all(200 <= c < 300 for c in codes[:10]) and codes[10] == 429, codes)
+# failures are refunded only up to 3x the limit per window, so deliberate failures cannot be sent forever
+u2 = user()
+u = u2
+codes = [up("/covers", junk) for _ in range(41)]
+check("41st deliberately failing upload within an hour -> 429 (30 refunded, then 10 counted)",
+      codes[:40] == [400] * 40 and codes[40] == 429, codes[-3:])
 print("ALL PASS")

@@ -33,13 +33,22 @@ public class RateLimitServiceImpl implements RateLimitService {
             return {count, redis.call('TTL', KEYS[1])}
             """, List.class);
 
+    // 실패 횟수(KEYS[2])도 같은 윈도우로 세고, 상한(ARGV[2]) 이내일 때만 환불한다.
+    // 상한이 없으면 일부러 실패하는 요청(해상도 미달 10MB 업로드 등)을 무제한 보낼 수 있다.
     // 윈도우가 이미 만료됐으면 키를 새로 만들지 않는다 (TTL 없는 음수 키 방지)
     private static final RedisScript<Long> REFUND = RedisScript.of("""
-            if redis.call('EXISTS', KEYS[1]) == 1 then
+            local failures = redis.call('INCR', KEYS[2])
+            if redis.call('TTL', KEYS[2]) < 0 then
+              redis.call('EXPIRE', KEYS[2], ARGV[1])
+            end
+            if failures <= tonumber(ARGV[2]) and redis.call('EXISTS', KEYS[1]) == 1 then
               return redis.call('DECR', KEYS[1])
             end
-            return 0
+            return -1
             """, Long.class);
+
+    // 윈도우당 환불해 줄 실패 횟수 = 한도 × 이 값
+    private static final int REFUNDABLE_FAILURES_MULTIPLIER = 3;
 
     private final StringRedisTemplate redisTemplate;
     private final RateLimitConfig rateLimitConfig;
@@ -68,7 +77,11 @@ public class RateLimitServiceImpl implements RateLimitService {
 
     @Override
     public void refund(String subject, RateLimitAction action) {
-        redisTemplate.execute(REFUND, List.of(buildKey(subject, action)));
+        RateLimitConfig.ActionLimit config = getActionConfig(action);
+        redisTemplate.execute(REFUND,
+                List.of(buildKey(subject, action), KEY_PREFIX + "fail:" + action.name().toLowerCase() + ":" + subject),
+                String.valueOf(config.getWindowSeconds()),
+                String.valueOf(config.getLimit() * REFUNDABLE_FAILURES_MULTIPLIER));
     }
 
     private String buildKey(String subject, RateLimitAction action) {

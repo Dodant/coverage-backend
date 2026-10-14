@@ -55,7 +55,7 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 - `config/ratelimit/RateLimitInterceptor` — `WebMvcConfig`에서 전체 경로에 등록(Swagger/actuator 제외).
 - 컨트롤러 메서드에 `@RateLimited(action = RateLimitAction.X)`를 붙여야만 적용된다. 설정만 있고 어노테이션이 없어 동작하지 않던 적이 있다(dbba5bf).
 - 로그인 사용자는 `user:{id}`, 비로그인은 `ip:{remoteAddr}` 단위로 센다. 익명 엔드포인트도 어노테이션만 붙이면 된다(예: `POST /takedowns`).
-- Lua 스크립트로 INCR+EXPIRE를 원자 실행. 4xx/5xx로 끝난 요청은 `afterCompletion`에서 1회 환불한다(검증 실패가 한도를 깎지 않음).
+- Lua 스크립트로 INCR+EXPIRE를 원자 실행. 4xx로 끝난 요청은 `afterCompletion`에서 1회 환불하되 윈도우당 한도×3회까지만(그 뒤 실패는 한도에 포함). 5xx·예외는 환불하지 않는다.
 - Redis 키 `rate_limit:{action}:{subject}`. 초과 시 `RateLimitExceededException` → 429 + `Retry-After` 헤더.
 
 ### 에러 처리
