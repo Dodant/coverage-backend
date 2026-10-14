@@ -11,6 +11,8 @@ import com.bookcover.archive.domain.report.ReportTargetType;
 import com.bookcover.archive.domain.social.Comment;
 import com.bookcover.archive.domain.user.User;
 import com.bookcover.archive.domain.user.UserStatus;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
 import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.event.ModerationEvent;
 import com.bookcover.archive.event.ModerationEventType;
@@ -174,103 +176,61 @@ public class ModerationServiceImpl implements ModerationService {
 
     @Override
     public void hideContent(ReportTargetType targetType, UUID targetId, String reason) {
-        switch (targetType) {
-            case ORIGINAL_BOOK -> {
-                OriginalBook book = originalBookRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", targetId));
-                book.setStatus(ContentStatus.HIDDEN);
-                book.setUpdatedAt(Instant.now());
-                originalBookRepository.save(book);
-            }
-            case TRANSLATED_BOOK -> {
-                TranslatedBook book = translatedBookRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", targetId));
-                book.setStatus(ContentStatus.HIDDEN);
-                book.setUpdatedAt(Instant.now());
-                translatedBookRepository.save(book);
-            }
-            case REDESIGN -> {
-                Redesign redesign = redesignRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Redesign", targetId));
-                redesign.setStatus(ContentStatus.HIDDEN);
-                redesign.setUpdatedAt(Instant.now());
-                redesignRepository.save(redesign);
-            }
-            case COMMENT -> {
-                Comment comment = commentRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Comment", targetId));
-                comment.setStatus(ContentStatus.HIDDEN);
-                comment.setUpdatedAt(Instant.now());
-                commentRepository.save(comment);
-            }
-        }
+        changeStatus(targetType, targetId, ContentStatus.HIDDEN);
     }
 
     @Override
     public void restoreContent(ReportTargetType targetType, UUID targetId) {
-        switch (targetType) {
-            case ORIGINAL_BOOK -> {
-                OriginalBook book = originalBookRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", targetId));
-                book.setStatus(ContentStatus.PUBLISHED);
-                book.setUpdatedAt(Instant.now());
-                originalBookRepository.save(book);
-            }
-            case TRANSLATED_BOOK -> {
-                TranslatedBook book = translatedBookRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", targetId));
-                book.setStatus(ContentStatus.PUBLISHED);
-                book.setUpdatedAt(Instant.now());
-                translatedBookRepository.save(book);
-            }
-            case REDESIGN -> {
-                Redesign redesign = redesignRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Redesign", targetId));
-                redesign.setStatus(ContentStatus.PUBLISHED);
-                redesign.setUpdatedAt(Instant.now());
-                redesignRepository.save(redesign);
-            }
-            case COMMENT -> {
-                Comment comment = commentRepository.findById(targetId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Comment", targetId));
-                comment.setStatus(ContentStatus.PUBLISHED);
-                comment.setUpdatedAt(Instant.now());
-                commentRepository.save(comment);
-            }
-        }
+        changeStatus(targetType, targetId, ContentStatus.PUBLISHED);
     }
 
     @Override
     public void deleteContent(ReportTargetType targetType, UUID targetId, String reason) {
-        switch (targetType) {
+        changeStatus(targetType, targetId, ContentStatus.DELETED);
+    }
+
+    /**
+     * 콘텐츠 상태를 바꾸고 검색 문서도 다시 색인한다.
+     * 검색은 status=PUBLISHED만 노출하므로 재색인만으로 숨김·복구·삭제가 반영된다.
+     */
+    private void changeStatus(ReportTargetType targetType, UUID targetId, ContentStatus status) {
+        Instant now = Instant.now();
+        ContentEventType reindex = switch (targetType) {
             case ORIGINAL_BOOK -> {
                 OriginalBook book = originalBookRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", targetId));
-                book.setStatus(ContentStatus.DELETED);
-                book.setUpdatedAt(Instant.now());
+                book.setStatus(status);
+                book.setUpdatedAt(now);
                 originalBookRepository.save(book);
+                yield ContentEventType.ORIGINAL_BOOK_UPDATED;
             }
             case TRANSLATED_BOOK -> {
                 TranslatedBook book = translatedBookRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", targetId));
-                book.setStatus(ContentStatus.DELETED);
-                book.setUpdatedAt(Instant.now());
+                book.setStatus(status);
+                book.setUpdatedAt(now);
                 translatedBookRepository.save(book);
+                yield ContentEventType.TRANSLATED_BOOK_UPDATED;
             }
             case REDESIGN -> {
                 Redesign redesign = redesignRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("Redesign", targetId));
-                redesign.setStatus(ContentStatus.DELETED);
-                redesign.setUpdatedAt(Instant.now());
+                redesign.setStatus(status);
+                redesign.setUpdatedAt(now);
                 redesignRepository.save(redesign);
+                yield ContentEventType.REDESIGN_UPDATED;
             }
             case COMMENT -> {
                 Comment comment = commentRepository.findById(targetId)
                         .orElseThrow(() -> new ResourceNotFoundException("Comment", targetId));
-                comment.setStatus(ContentStatus.DELETED);
-                comment.setUpdatedAt(Instant.now());
+                comment.setStatus(status);
+                comment.setUpdatedAt(now);
                 commentRepository.save(comment);
+                yield null; // 댓글은 검색 색인 대상이 아님
             }
+        };
+        if (reindex != null) {
+            eventPublisher.publishContentEvent(new ContentEvent(reindex, targetId, null));
         }
     }
 

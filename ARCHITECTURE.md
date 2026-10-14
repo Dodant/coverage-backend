@@ -81,7 +81,7 @@ Single Spring Boot module, package `com.bookcover.archive`. PostgreSQL is the so
 | `bookcover.moderation.events` | `ModerationServiceImpl` (reported, auto-hidden, …) | `ModerationEventListener` (group `moderation-notification`) | **Logs only.** Admin and owner notifications are TODO. |
 | `bookcover.search.index` | `KafkaEventPublisher.publishSearchIndexEvent` exists, but no service calls it | nobody | Unused |
 
-Payloads are JSON strings. Listeners catch and log every exception, so a failed event is dropped rather than retried.
+Payloads are JSON strings. Events published inside a transaction are sent after commit (`KafkaEventPublisher`), so a crash between commit and send loses the event. `SearchIndexEventListener` lets exceptions propagate: `KafkaConfig.kafkaErrorHandler` retries 3× at 1s, then sends to `bookcover.content.events.DLT` (not reprocessed automatically; recover with `POST /admin/search/reindex`). `ModerationEventListener` still catches and logs everything.
 
 ## Rate limiting
 
@@ -112,7 +112,6 @@ Spring's multipart limits are 10 MB per file and 15 MB per request.
 
 These are not yet reproduced at runtime, so verify each one before relying on it.
 
-- **Hidden content may stay searchable.** Moderation changes status in PostgreSQL but does not publish a content event, so the ES document keeps `status=PUBLISHED` until the entity is next updated.
-- **Indexing can race the commit.** Content events are sent from inside the service transaction, so the listener may read the DB before the commit and index stale data.
+- **Takedown approval does not hide content.** `approveRequest` only changes the request status; an admin must also call `/admin/moderation/content/hide`.
 - Moderation notifications and most audit logging are not implemented (see above).
 - `SecurityConfig` permits `GET /browse/**`, but browsing actually lives at `/search/browse/...`, so that rule matches nothing.
