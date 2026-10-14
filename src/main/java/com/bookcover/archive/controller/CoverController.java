@@ -1,10 +1,12 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
 import com.bookcover.archive.controller.dto.book.BookCoverResponse;
 import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.BookCoverRepository;
 import com.bookcover.archive.service.ImageService;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.service.ImageService.ImageType;
 import com.bookcover.archive.service.ImageService.ImageUploadResult;
 import com.bookcover.archive.service.ImageService.ImageValidationResult;
@@ -53,6 +55,7 @@ public class CoverController {
      * Requirements: 14.8 - 썸네일과 원본 이미지를 별도로 저장
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "커버 이미지 업로드", description = "북커버 이미지를 업로드합니다. 최소 해상도 800x1200, 최대 10MB, JPEG/PNG/WebP 형식만 허용됩니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -86,6 +89,7 @@ public class CoverController {
      * 리디자인 이미지를 업로드합니다.
      */
     @PostMapping(value = "/redesign", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "리디자인 이미지 업로드", description = "리디자인 이미지를 업로드합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
