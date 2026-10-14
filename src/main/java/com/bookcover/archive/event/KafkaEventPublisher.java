@@ -90,7 +90,14 @@ public class KafkaEventPublisher implements EventPublisher {
 
     // ponytail: 커밋과 발행 사이에 앱이 죽으면 이벤트가 유실된다. 유실이 문제되면 outbox 테이블로
     private void send(String topic, String key, String payload, String eventType) {
-        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(topic, key, payload);
+        CompletableFuture<SendResult<String, String>> future;
+        try {
+            future = kafkaTemplate.send(topic, key, payload);
+        } catch (Exception ex) {
+            // afterCommit에서 던지면 이미 커밋된 요청이 500이 되고 뒤에 등록된 이벤트도 건너뛴다. 로그만 남긴다
+            log.error("Failed to send {} to topic {} (key {})", eventType, topic, key, ex);
+            return;
+        }
 
         future.whenComplete((result, ex) -> {
             if (ex != null) {

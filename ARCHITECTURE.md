@@ -77,7 +77,7 @@ Single Spring Boot module, package `com.bookcover.archive`. PostgreSQL is the so
 
 | Topic | Produced by | Consumed by | Effect |
 |---|---|---|---|
-| `bookcover.content.events` | `BookServiceImpl`, `RedesignServiceImpl` on create/update/delete | `SearchIndexEventListener` (group `search-index-sync`) | Re-reads the entity from the DB and upserts or removes the ES document (`original_{id}`, `translated_{id}`, `redesign_{id}`) |
+| `bookcover.content.events` | `BookServiceImpl`, `RedesignServiceImpl` on create/update/delete; `ModerationServiceImpl` on hide/restore/delete (books and redesigns, not comments) | `SearchIndexEventListener` (group `search-index-sync`) | Re-reads the entity from the DB and upserts or removes the ES document (`original_{id}`, `translated_{id}`, `redesign_{id}`) |
 | `bookcover.moderation.events` | `ModerationServiceImpl` (reported, auto-hidden, …) | `ModerationEventListener` (group `moderation-notification`) | **Logs only.** Admin and owner notifications are TODO. |
 | `bookcover.search.index` | `KafkaEventPublisher.publishSearchIndexEvent` exists, but no service calls it | nobody | Unused |
 
