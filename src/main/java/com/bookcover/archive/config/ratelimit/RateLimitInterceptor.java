@@ -1,12 +1,11 @@
 package com.bookcover.archive.config.ratelimit;
 
+import com.bookcover.archive.config.security.SecurityUtils;
 import com.bookcover.archive.exception.RateLimitExceededException;
 import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.service.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -41,7 +40,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        UUID userId = getCurrentUserId();
+        UUID userId = SecurityUtils.getCurrentUserId().orElse(null);
         if (userId == null) {
             // 인증되지 않은 사용자는 레이트 리밋 적용하지 않음
             return true;
@@ -56,27 +55,5 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         rateLimitService.checkAndRecord(userId, action);
 
         return true;
-    }
-
-    /**
-     * 현재 인증된 사용자의 ID를 가져옵니다.
-     * SecurityContext에서 인증 정보를 추출합니다.
-     */
-    private UUID getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return null;
-        }
-
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof String && !"anonymousUser".equals(principal)) {
-            try {
-                return UUID.fromString((String) principal);
-            } catch (IllegalArgumentException e) {
-                return null;
-            }
-        }
-
-        return null;
     }
 }
