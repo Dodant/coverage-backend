@@ -4,7 +4,11 @@ import com.bookcover.archive.domain.audit.AuditAction;
 import com.bookcover.archive.domain.audit.AuditEntityType;
 import com.bookcover.archive.domain.contributor.Author;
 import com.bookcover.archive.domain.contributor.Designer;
+import com.bookcover.archive.domain.book.Series;
 import com.bookcover.archive.domain.contributor.Publisher;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
+import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.AuthorRepository;
@@ -12,13 +16,16 @@ import com.bookcover.archive.repository.CoverCreditRepository;
 import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.PublisherRepository;
+import com.bookcover.archive.repository.SeriesRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.service.AuditService;
 import com.bookcover.archive.service.EntityManagementService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,6 +46,8 @@ public class EntityManagementServiceImpl implements EntityManagementService {
     private final TranslatedBookRepository translatedBookRepository;
     private final AuditService auditService;
     private final CoverCreditRepository coverCreditRepository;
+    private final SeriesRepository seriesRepository;
+    private final EventPublisher eventPublisher;
 
     public EntityManagementServiceImpl(
             AuthorRepository authorRepository,
@@ -47,7 +56,9 @@ public class EntityManagementServiceImpl implements EntityManagementService {
             OriginalBookRepository originalBookRepository,
             TranslatedBookRepository translatedBookRepository,
             AuditService auditService,
-            CoverCreditRepository coverCreditRepository) {
+            CoverCreditRepository coverCreditRepository,
+            SeriesRepository seriesRepository,
+            EventPublisher eventPublisher) {
         this.authorRepository = authorRepository;
         this.publisherRepository = publisherRepository;
         this.designerRepository = designerRepository;
@@ -55,6 +66,8 @@ public class EntityManagementServiceImpl implements EntityManagementService {
         this.translatedBookRepository = translatedBookRepository;
         this.auditService = auditService;
         this.coverCreditRepository = coverCreditRepository;
+        this.seriesRepository = seriesRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // 작가 별칭 관리
@@ -219,6 +232,19 @@ public class EntityManagementServiceImpl implements EntityManagementService {
             translatedBookRepository.save(book);
         });
 
+        // source의 시리즈를 target으로 이전 (series.publisher_id FK 때문에 source 삭제 전에 해야 한다).
+        // target에 같은 이름의 시리즈가 있으면 책을 그쪽으로 옮기고 source 시리즈는 지운다
+        for (Series series : seriesRepository.findByPublisherId(sourceId)) {
+            Optional<Series> same = seriesRepository
+                    .findFirstByNameAndPublisherIdOrderByCreatedAtAsc(series.getName(), targetId);
+            if (same.isPresent()) {
+                seriesRepository.moveBooks(series, same.get());
+                seriesRepository.delete(series);
+            } else {
+                series.setPublisher(target);
+            }
+        }
+
         // 감사 로그 기록
         String mergeInfo = String.format("{\"sourceId\":\"%s\",\"sourceName\":\"%s\",\"targetId\":\"%s\",\"targetName\":\"%s\"}",
                 sourceId, source.getName(), targetId, target.getName());
@@ -245,9 +271,20 @@ public class EntityManagementServiceImpl implements EntityManagementService {
         target.getAliases().addAll(source.getAliases());
         target.addAlias(source.getName());
 
+        // 검색 문서의 designers/designerIds를 갱신할 책 (이전 전에 모아 둔다)
+        List<UUID> originalIds = coverCreditRepository.findOriginalBookIds(sourceId);
+        List<UUID> translatedIds = coverCreditRepository.findTranslatedBookIds(sourceId);
+
         // source의 표지 크레딧을 target으로 이전 (이미 같은 표지·역할에 target이 있으면 중복 제거)
         coverCreditRepository.deleteOverlapping(sourceId, targetId);
         coverCreditRepository.reassign(sourceId, target);
+
+        // ponytail: 커밋 전에 발행하므로 컨슈머가 먼저 읽으면 옛 크레딧으로 색인될 수 있다 (기존 이벤트 발행과 같은 한계).
+        // 어긋나면 POST /admin/search/reindex로 맞춘다
+        originalIds.forEach(id -> eventPublisher.publishContentEvent(
+                new ContentEvent(ContentEventType.ORIGINAL_BOOK_UPDATED, id, performedById)));
+        translatedIds.forEach(id -> eventPublisher.publishContentEvent(
+                new ContentEvent(ContentEventType.TRANSLATED_BOOK_UPDATED, id, performedById)));
 
         // 감사 로그 기록
         String mergeInfo = String.format("{\"sourceId\":\"%s\",\"sourceName\":\"%s\",\"targetId\":\"%s\",\"targetName\":\"%s\"}",

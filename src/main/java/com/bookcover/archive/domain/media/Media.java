@@ -13,6 +13,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
@@ -34,7 +35,7 @@ import java.util.UUID;
  * @see com.bookcover.archive.domain.book.TranslatedBook
  */
 @Entity
-@Table(name = "media")
+@Table(name = "media", indexes = @Index(name = "idx_media_series", columnList = "series_id"))
 @Inheritance(strategy = InheritanceType.JOINED)
 @DiscriminatorColumn(name = "media_type")
 public abstract class Media {

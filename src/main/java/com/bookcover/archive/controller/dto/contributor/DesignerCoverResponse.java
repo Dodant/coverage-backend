@@ -5,6 +5,7 @@ import com.bookcover.archive.domain.book.CoverType;
 import com.bookcover.archive.domain.book.CreditRole;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.media.Media;
+import org.hibernate.Hibernate;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,7 +41,8 @@ public record DesignerCoverResponse(
                 .toList(),
             book == null ? null : new BookSummary(
                 book.getId(),
-                book instanceof OriginalBook ? "ORIGINAL" : "TRANSLATED",
+                // 지연 로딩 프록시는 Media 타입이라 unproxy 없이는 instanceof OriginalBook이 거짓이 된다
+                Hibernate.unproxy(book) instanceof OriginalBook ? "ORIGINAL" : "TRANSLATED",
                 book.getTitle(),
                 book.getCountryCode(),
                 book.getYear())

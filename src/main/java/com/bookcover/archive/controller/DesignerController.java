@@ -13,7 +13,6 @@ import com.bookcover.archive.repository.DesignerRepository;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
 import io.swagger.v3.oas.annotations.Operation;
-import org.hibernate.Hibernate;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -98,8 +97,7 @@ public class DesignerController {
     /** 앞면 표지는 book으로, 뒷면 표지는 book_id가 없어 원서·번역서의 backCover로 역조회한다 */
     private Media ownerOf(BookCover cover) {
         if (cover.getBook() != null) {
-            // 지연 로딩 프록시는 Media 타입이라 instanceof OriginalBook이 거짓이 된다
-            return (Media) Hibernate.unproxy(cover.getBook());
+            return cover.getBook();
         }
         return originalBookRepository.findByBackCoverId(cover.getId()).<Media>map(b -> b)
                 .or(() -> translatedBookRepository.findByBackCoverId(cover.getId()))

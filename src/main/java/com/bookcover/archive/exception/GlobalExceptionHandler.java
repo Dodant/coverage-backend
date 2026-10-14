@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
@@ -131,6 +132,25 @@ public class GlobalExceptionHandler {
         ErrorResponse response = new ErrorResponse(
             ErrorCode.MISSING_REQUIRED_FIELD,
             "필수 파라미터가 누락되었습니다: " + ex.getParameterName(),
+            details
+        );
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * MethodArgumentTypeMismatchException 처리 - 경로·쿼리 파라미터 형식 오류 (잘못된 UUID, enum 값 등)
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        Map<String, Object> details = new HashMap<>();
+        details.put("parameterName", ex.getName());
+        if (ex.getRequiredType() != null && ex.getRequiredType().isEnum()) {
+            details.put("allowedValues", ex.getRequiredType().getEnumConstants());
+        }
+
+        ErrorResponse response = new ErrorResponse(
+            ErrorCode.VALIDATION_ERROR,
+            "파라미터 형식이 올바르지 않습니다: " + ex.getName(),
             details
         );
         return ResponseEntity.badRequest().body(response);

@@ -1,5 +1,7 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.controller.dto.book.OriginalBookResponse;
 import com.bookcover.archive.controller.dto.book.TranslatedBookResponse;
@@ -58,6 +60,7 @@ public class OriginalBookController {
      * Requirements: 1.1 - 필수 항목 검증, 1.5 - 고유 식별자 생성 및 저장
      */
     @PostMapping
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "원서 등록", description = "새 원서를 등록합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -114,6 +117,7 @@ public class OriginalBookController {
      * 원서를 수정합니다.
      */
     @PutMapping("/{id}")
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "원서 수정", description = "원서 정보를 수정합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({

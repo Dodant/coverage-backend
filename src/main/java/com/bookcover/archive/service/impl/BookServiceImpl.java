@@ -736,9 +736,17 @@ public class BookServiceImpl implements BookService {
         if (credits == null) {
             return;
         }
+        // 이름 없는 디자이너를 새로 만들므로 한 요청이 공개 디자이너 목록을 채우지 못하게 막는다
+        if (credits.size() > MAX_CREDITS_PER_COVER) {
+            throw new ValidationException("표지 크레딧은 " + MAX_CREDITS_PER_COVER + "개까지 넣을 수 있습니다",
+                    Map.of("credits", credits.size()));
+        }
         List<CoverCredit> wanted = new ArrayList<>();
         Set<String> wantedKeys = new HashSet<>();
         for (CreditInfo info : credits) {
+            if (info == null) {
+                throw new ValidationException("Credit entry must not be null", Map.of());
+            }
             if (info.role() == null) {
                 throw new ValidationException("Credit role is required", Map.of());
             }
@@ -760,6 +768,17 @@ public class BookServiceImpl implements BookService {
                 .forEach(cover.getCredits()::add);
     }
 
+    private static final int MAX_CREDITS_PER_COVER = 20;
+    private static final int MAX_NAME_LENGTH = 255;
+
+    /** 이름 컬럼(varchar 255)을 넘으면 DB 오류(500) 대신 400으로 거절한다 */
+    private static String checkNameLength(String name, String field) {
+        if (name.length() > MAX_NAME_LENGTH) {
+            throw new ValidationException(field + "은 " + MAX_NAME_LENGTH + "자 이하여야 합니다", Map.of(field, name.length()));
+        }
+        return name;
+    }
+
     private static String creditKey(Designer designer, CreditRole role) {
         return designer.getId() + ":" + role;
     }
@@ -772,8 +791,9 @@ public class BookServiceImpl implements BookService {
         if (designerName == null || designerName.isBlank()) {
             return null;
         }
-        String name = designerName.trim();
-        return designerRepository.findByName(name)
+        String name = checkNameLength(designerName.trim(), "designerName");
+        // ponytail: 이름 유니크 제약이 없어 동시 등록이면 중복 행이 생길 수 있다. 조회가 첫 행을 쓰므로 500은 안 나고, 중복은 관리자 병합으로 정리
+        return designerRepository.findExactNameOrAlias(name).stream().findFirst()
                 .orElseGet(() -> {
                     Designer newDesigner = new Designer();
                     newDesigner.setName(name);
@@ -790,10 +810,11 @@ public class BookServiceImpl implements BookService {
         if (seriesName == null || seriesName.isBlank()) {
             return null;
         }
-        String name = seriesName.trim();
+        String name = checkNameLength(seriesName.trim(), "seriesName");
+        // ponytail: (이름, 출판사) 유니크 제약이 없어 동시 등록이면 중복 행이 생길 수 있다. 조회는 첫 행을 쓰므로 500은 안 난다
         Optional<Series> existing = publisher != null
-                ? seriesRepository.findByNameAndPublisherId(name, publisher.getId())
-                : seriesRepository.findByNameAndPublisherIsNull(name);
+                ? seriesRepository.findFirstByNameAndPublisherIdOrderByCreatedAtAsc(name, publisher.getId())
+                : seriesRepository.findFirstByNameAndPublisherIsNullOrderByCreatedAtAsc(name);
         return existing.orElseGet(() -> {
             Series series = new Series();
             series.setName(name);

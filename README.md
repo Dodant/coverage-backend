@@ -53,7 +53,7 @@ Every path is prefixed with `/api`. See Swagger for the full spec.
 | `/users` | Profiles | Required |
 | `/reports` | Content reports | Required |
 | `/takedowns` | Copyright takedown requests | POST open to non-members |
-| `/admin/{reports,moderation,entities,dashboard,takedowns}` | Admin features | ADMIN |
+| `/admin/{reports,moderation,entities,dashboard,takedowns,search}` | Admin features | ADMIN |
 
 Likes, comments, uploads, reports and takedown requests are rate limited. Exceeding a limit returns `429` with a `Retry-After` header. Limits are set under `rate-limit.*` in `application.yml`.
 

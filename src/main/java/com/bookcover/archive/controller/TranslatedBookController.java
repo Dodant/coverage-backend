@@ -1,5 +1,7 @@
 package com.bookcover.archive.controller;
 
+import com.bookcover.archive.config.ratelimit.RateLimited;
+import com.bookcover.archive.service.RateLimitAction;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.controller.dto.book.TranslatedBookResponse;
 import com.bookcover.archive.domain.book.TranslatedBook;
@@ -51,6 +53,7 @@ public class TranslatedBookController {
      * Requirements: 2.1 - 번역서를 기존 원서와 연결
      */
     @PostMapping("/original/{originalBookId}")
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "번역서 등록", description = "원서에 연결된 새 번역서를 등록합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -107,6 +110,7 @@ public class TranslatedBookController {
      * 번역서를 수정합니다.
      */
     @PutMapping("/{id}")
+    @RateLimited(action = RateLimitAction.UPLOAD)
     @Operation(summary = "번역서 수정", description = "번역서 정보를 수정합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({

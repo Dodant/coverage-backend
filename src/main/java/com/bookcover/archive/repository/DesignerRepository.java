@@ -62,4 +62,12 @@ public interface DesignerRepository extends JpaRepository<Designer, UUID> {
     @Query("SELECT d FROM Designer d WHERE LOWER(d.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
            "OR EXISTS (SELECT 1 FROM d.aliases alias WHERE LOWER(alias) LIKE LOWER(CONCAT('%', :name, '%')))")
     List<Designer> findByNameOrAlias(@Param("name") String name);
+
+    /**
+     * 이름 또는 별칭이 정확히 같은 디자이너 (이름 일치 우선, 먼저 만든 순).
+     * 병합된 이름으로 다시 등록해도 병합 대상이 재사용되고, 중복 행이 있어도 예외 없이 하나를 고른다.
+     */
+    @Query("SELECT d FROM Designer d WHERE d.name = :name OR :name MEMBER OF d.aliases " +
+           "ORDER BY CASE WHEN d.name = :name THEN 0 ELSE 1 END, d.createdAt")
+    List<Designer> findExactNameOrAlias(@Param("name") String name);
 }
