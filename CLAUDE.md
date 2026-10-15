@@ -104,6 +104,8 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 - MinIO 이미지는 더 이상 배포되지 않아 compose는 `rustfs/rustfs`로 대체했다(컨테이너명은 `bookcover-minio` 유지). ES는 nori 없으면 인덱스 설정(`resources/elasticsearch/book-covers-settings.json`)이 실패한다.
 - IP 단위 레이트 리밋은 `getRemoteAddr()` 기준이다. prod는 `server.forward-headers-strategy: native`로 사설망 프록시의 X-Forwarded-For를 신뢰한다. 프록시가 공인 IP면 Tomcat `internal-proxies` 설정 필요.
 - 로컬 RustFS에 `bookcovers` 버킷이 없으면 업로드가 500(NoSuchBucket). `aws --endpoint-url http://localhost:9000 s3 mb s3://bookcovers` (키 minioadmin/minioadmin123).
+  버킷을 새로 만들면 이미지 읽기도 막혀 있어 브라우저(백오피스 등)에서 표지가 403으로 안 보인다. 백엔드는 정책을 설정하지 않으므로 객체 읽기만 공개한다:
+  `aws --endpoint-url http://localhost:9000 s3api put-bucket-policy --bucket bookcovers --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::bookcovers/*"]}]}'` (목록 조회는 계속 막힘)
 - 매핑 안 된 경로도 404가 아니라 **500(INTERNAL_ERROR)** 이 나온다(`GlobalExceptionHandler`의 `@ExceptionHandler(Exception.class)`가 라우팅 실패까지 잡음). 500이면 경로 오타부터 의심.
 - 브라우징은 `/search/browse/...`에 있다. `SecurityConfig`의 `GET /browse/**` permitAll 규칙은 매칭되는 컨트롤러가 없다.
 - 처리되지 않은 예외는 `GlobalExceptionHandler`에서 로그로 남긴다 — 500 원인은 서버 로그부터 확인.
