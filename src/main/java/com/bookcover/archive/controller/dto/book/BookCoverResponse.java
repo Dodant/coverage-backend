@@ -39,7 +39,9 @@ public record BookCoverResponse(
     String countryCode,
     String languageCode,
     List<CreditResponse> credits,
-    List<TagResponse> tags
+    List<TagResponse> tags,
+    /** 비슷한 표지 묶음 ID (같은 값이면 언어가 달라도 디자인이 비슷한 표지) */
+    UUID similarGroupId
 ) {
     /** 표지 크레딧 (designerId는 /designers/{id} 프로필로 연결) */
     public record CreditResponse(UUID designerId, String name, CreditRole role) {}
@@ -74,7 +76,8 @@ public record BookCoverResponse(
             cover.getCredits().stream()
                 .map(c -> new CreditResponse(c.getDesigner().getId(), c.getDesigner().getName(), c.getRole()))
                 .toList(),
-            cover.getTags().stream().filter(t -> Boolean.TRUE.equals(t.getApproved())).map(TagResponse::from).toList()
+            cover.getTags().stream().filter(t -> Boolean.TRUE.equals(t.getApproved())).map(TagResponse::from).toList(),
+            cover.getSimilarGroupId()
         );
     }
 }

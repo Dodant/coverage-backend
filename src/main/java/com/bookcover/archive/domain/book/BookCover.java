@@ -80,6 +80,10 @@ public class BookCover {
     @Column(length = 100)
     private String sourceName;
 
+    /** 언어가 달라도 디자인이 비슷한 표지끼리 같은 값. 관리자가 백오피스에서 묶는다(없으면 null) */
+    @Column(name = "similar_group_id")
+    private UUID similarGroupId;
+
     /** 대표 색상 (HEX 코드) */
     @Column(length = 7)
     private String dominantColor;
@@ -281,6 +285,14 @@ public class BookCover {
 
     public void setSourceName(String sourceName) {
         this.sourceName = sourceName;
+    }
+
+    public UUID getSimilarGroupId() {
+        return similarGroupId;
+    }
+
+    public void setSimilarGroupId(UUID similarGroupId) {
+        this.similarGroupId = similarGroupId;
     }
 
     public String getDominantColor() {

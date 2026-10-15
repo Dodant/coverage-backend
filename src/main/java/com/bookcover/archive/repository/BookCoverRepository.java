@@ -73,6 +73,9 @@ public interface BookCoverRepository extends JpaRepository<BookCover, UUID> {
     List<BookCover> findByImageUrl(String imageUrl);
     List<BookCover> findByThumbnailUrl(String thumbnailUrl);
 
+    /** 비슷한 표지 묶음의 표지들 */
+    List<BookCover> findBySimilarGroupId(UUID similarGroupId);
+
     /**
      * 디자이너가 크레딧에 오른 표지 목록 (앞면 변형·뒷면 모두, 공개(PUBLISHED) 책의 표지만, 최근 등록순).
      * role이 null이면 역할 무관.
