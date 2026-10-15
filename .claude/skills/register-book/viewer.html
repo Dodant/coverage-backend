@@ -91,6 +91,8 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const lang = c => c ? `${esc(LANG[c] || c)} <span class="kind">${esc(c)}</span>` : "";
 const badge = s => `<span class="badge s-${esc(s)}">${esc(STATUS[s] || s)}</span>`;
 const urlOf = c => typeof c === "string" ? c : c?.url;
+// plan은 웹에서 모은 데이터라 href/src에는 http(s) URL만 넣는다 (javascript: 등 차단)
+const safeUrl = u => /^https?:\/\//i.test(String(u ?? "")) ? String(u) : "";
 // 출처 값은 "URL" 또는 "URL (설명)" 형식
 const link = s => { const m = String(s).match(/^(https?:\/\/\S+)(.*)$/);
   return m ? `<a href="${esc(m[1])}" target="_blank" rel="noopener">${esc(m[1])}</a>${esc(m[2])}` : esc(s); };
@@ -130,7 +132,7 @@ async function show(file) {
 
 function card(r, item) {
   // 서버에 올린 이미지 → 원본 출처 → plan의 후보 순으로 시도
-  const imgs = [r.coverUrl, r.coverSourceUrl, ...(item.coverSourceUrls || []).map(urlOf)].filter(Boolean);
+  const imgs = [r.coverUrl, r.coverSourceUrl, ...(item.coverSourceUrls || []).map(urlOf)].map(safeUrl).filter(Boolean);
   const cover = imgs.length
     ? `<img src="${esc(imgs[0])}" data-alt="${esc(JSON.stringify(imgs.slice(1)))}" onerror="nextImg(this)" alt="">`
     : `<div class="nocover">표지 없음</div>`;
@@ -138,7 +140,7 @@ function card(r, item) {
     ["옮긴이", item.translatorName], ["출판사", item.publisherName], ["연도", item.year], ["나라", item.countryCode], ["장르", item.genre],
     ["서버 ID", r.id || r.existingId]].filter(([, v]) => v);
   const srcs = Object.entries(item.sources || {});
-  const others = item.otherPrintingCovers || [];
+  const others = (item.otherPrintingCovers || []).filter(o => safeUrl(o.url));
   return `<div class="card">
     <div class="cover">${cover}<small>${esc(r.coverSize || r.to || "")} ${esc(r.coverSourceName || "")}</small></div>
     <div>

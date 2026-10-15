@@ -6,9 +6,11 @@
 import argparse
 import datetime
 import http.server
+import ipaddress
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -72,6 +74,12 @@ def self_check():
     assert to_isbn10("9780553448184") == "0553448188"
     assert to_isbn10("9780804429573") == "080442957X"
     assert to_isbn10("9791234567896") is None
+    for bad in ("file:///etc/passwd", "http://127.0.0.1:9000/x.jpg", "http://169.254.169.254/", "http://10.0.0.1/a.jpg"):
+        try:
+            check_public_url(bad)
+            raise AssertionError(bad)
+        except ValueError:
+            pass
     assert sniff(b"\xff\xd8\xff") == "image/jpeg" and sniff(b"RIFF\0\0\0\0WEBP") == "image/webp"
     return {"selfCheck": "ok"}
 
@@ -153,10 +161,32 @@ def search(title):
 
 # ---- 표지 이미지 ----
 
+def check_public_url(url):
+    """plan의 URL은 웹에서 모은 값이라 http(s) 공개 주소만 연다 (file://, localhost, 사설망 차단)."""
+    u = urllib.parse.urlparse(url)
+    if u.scheme not in ("http", "https") or not u.hostname:
+        raise ValueError(f"http(s) URL만 허용: {url}")
+    for info in socket.getaddrinfo(u.hostname, u.port or (443 if u.scheme == "https" else 80)):
+        ip = ipaddress.ip_address(info[4][0])
+        if not ip.is_global:
+            raise ValueError(f"공개 주소가 아님({ip}): {url}")
+
+
+class _PublicRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        check_public_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# ponytail: DNS를 검사 뒤 다시 조회하므로 DNS rebinding은 막지 못한다. 로컬 전용 도구라 여기까지만
+_opener = urllib.request.build_opener(_PublicRedirects)
+
+
 def fetch_image(url):
     """(bytes, content_type). 실패하면 예외."""
+    check_public_url(url)
     req = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
+    with _opener.open(req, timeout=60) as r:
         return r.read(), r.headers.get_content_type()
 
 
@@ -204,7 +234,7 @@ def best_cover(candidates):
     for u, source_name in candidates:
         try:
             data, ctype = fetch_image(u)
-        except (urllib.error.URLError, OSError) as e:
+        except (urllib.error.URLError, OSError, ValueError) as e:
             print(f"표지 다운로드 실패: {u} ({e})", file=sys.stderr)
             continue
         ctype = sniff(data) or ctype  # OL은 WebP를 image/jpeg로 준다
@@ -482,7 +512,7 @@ def main():
             print_table(out)
     except ApiError as e:
         out = {"error": e.status, "body": e.body}
-    except (urllib.error.URLError, OSError) as e:
+    except (urllib.error.URLError, OSError, ValueError) as e:
         out = {"error": 0, "body": str(e)}
     json.dump(out, sys.stdout, ensure_ascii=False, indent=1)
     print()
