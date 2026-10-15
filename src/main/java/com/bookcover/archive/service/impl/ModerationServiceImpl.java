@@ -91,14 +91,14 @@ public class ModerationServiceImpl implements ModerationService {
                     Map.of("userId", reporterId, "status", reporter.getStatus().name()));
         }
 
+        // Requirements: 15.3 - 같은 대상 신고를 직렬화해 임계값 경쟁 조건을 막는다.
+        validateTargetExists(targetType, targetId);
+
         // 중복 신고 확인
         if (reportRepository.existsByReporterIdAndTargetTypeAndTargetId(reporterId, targetType, targetId)) {
             throw new ValidationException("User has already reported this content",
                     Map.of("targetType", targetType, "targetId", targetId));
         }
-
-        // 대상 존재 확인
-        validateTargetExists(targetType, targetId);
 
         Report report = new Report();
         report.setReporter(reporter);
@@ -122,7 +122,7 @@ public class ModerationServiceImpl implements ModerationService {
 
         // 자동 비공개 처리 확인 (3회 이상 신고)
         long reportCount = reportRepository.countByTargetTypeAndTargetId(targetType, targetId);
-        if (reportCount >= AUTO_HIDE_THRESHOLD) {
+        if (reportCount == AUTO_HIDE_THRESHOLD) {
             hideContent(targetType, targetId, "Auto-hidden due to multiple reports");
 
             // 자동 비공개 이벤트 발행
@@ -265,10 +265,10 @@ public class ModerationServiceImpl implements ModerationService {
 
     private void validateTargetExists(ReportTargetType targetType, UUID targetId) {
         boolean exists = switch (targetType) {
-            case ORIGINAL_BOOK -> originalBookRepository.existsById(targetId);
-            case TRANSLATED_BOOK -> translatedBookRepository.existsById(targetId);
-            case REDESIGN -> redesignRepository.existsById(targetId);
-            case COMMENT -> commentRepository.existsById(targetId);
+            case ORIGINAL_BOOK -> originalBookRepository.findByIdForUpdate(targetId).isPresent();
+            case TRANSLATED_BOOK -> translatedBookRepository.findByIdForUpdate(targetId).isPresent();
+            case REDESIGN -> redesignRepository.findByIdForUpdate(targetId).isPresent();
+            case COMMENT -> commentRepository.findByIdForUpdate(targetId).isPresent();
         };
 
         if (!exists) {

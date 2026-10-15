@@ -2,9 +2,11 @@ package com.bookcover.archive.repository;
 
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -22,6 +24,10 @@ import java.util.UUID;
  */
 @Repository
 public interface TranslatedBookRepository extends JpaRepository<TranslatedBook, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM TranslatedBook b WHERE b.id = :id")
+    Optional<TranslatedBook> findByIdForUpdate(@Param("id") UUID id);
 
     /** 뒷면 표지로 번역서를 찾습니다 */
     Optional<TranslatedBook> findByBackCoverId(UUID coverId);
