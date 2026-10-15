@@ -22,6 +22,13 @@ public interface ImageService {
      */
     ImageUploadResult uploadImage(MultipartFile file, ImageType type);
 
+    /** 검증된 업로드의 URL 쌍과 서버가 기록한 메타데이터를 확인한다. */
+    void requireVerifiedImage(String imageUrl, String thumbnailUrl, ImageType type,
+                              Integer width, Integer height, Long fileSize);
+
+    /** 삭제 승인된 이미지를 차단 목록에 넣고 관리 중인 원본·썸네일을 제거한다. */
+    void blockImage(String imageUrl, String thumbnailUrl);
+
     /**
      * 이미지 파일을 검증합니다.
      *

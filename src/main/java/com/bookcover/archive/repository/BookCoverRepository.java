@@ -4,15 +4,18 @@ import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.CoverLayout;
 import com.bookcover.archive.domain.book.CoverType;
 import com.bookcover.archive.domain.book.CreditRole;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -21,6 +24,10 @@ import java.util.UUID;
  */
 @Repository
 public interface BookCoverRepository extends JpaRepository<BookCover, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM BookCover c WHERE c.id = :id")
+    Optional<BookCover> findByIdForUpdate(@Param("id") UUID id);
 
     /**
      * 커버 유형으로 북커버 목록을 조회합니다.
@@ -64,6 +71,7 @@ public interface BookCoverRepository extends JpaRepository<BookCover, UUID> {
      * @return 북커버 목록
      */
     List<BookCover> findByImageUrl(String imageUrl);
+    List<BookCover> findByThumbnailUrl(String thumbnailUrl);
 
     /**
      * 디자이너가 크레딧에 오른 표지 목록 (앞면 변형·뒷면 모두, 공개(PUBLISHED) 책의 표지만, 최근 등록순).

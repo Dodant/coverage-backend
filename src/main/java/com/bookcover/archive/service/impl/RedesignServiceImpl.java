@@ -15,6 +15,8 @@ import com.bookcover.archive.repository.RedesignRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.service.ContributionService;
+import com.bookcover.archive.service.ImageService;
+import com.bookcover.archive.service.ImageService.ImageType;
 import com.bookcover.archive.service.RedesignService;
 import com.bookcover.archive.service.dto.CreateRedesignRequest;
 import com.bookcover.archive.service.dto.UpdateRedesignRequest;
@@ -47,6 +49,7 @@ public class RedesignServiceImpl implements RedesignService {
     private final UserRepository userRepository;
     private final ContributionService contributionService;
     private final EventPublisher eventPublisher;
+    private final ImageService imageService;
 
     public RedesignServiceImpl(
             RedesignRepository redesignRepository,
@@ -54,17 +57,20 @@ public class RedesignServiceImpl implements RedesignService {
             TranslatedBookRepository translatedBookRepository,
             UserRepository userRepository,
             ContributionService contributionService,
-            EventPublisher eventPublisher) {
+            EventPublisher eventPublisher, ImageService imageService) {
         this.redesignRepository = redesignRepository;
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.userRepository = userRepository;
         this.contributionService = contributionService;
         this.eventPublisher = eventPublisher;
+        this.imageService = imageService;
     }
 
     @Override
     public Redesign createRedesign(CreateRedesignRequest request) {
+        imageService.requireVerifiedImage(request.imageUrl(), request.thumbnailUrl(), ImageType.REDESIGN,
+                null, null, null);
         // 원서 또는 번역서 중 하나는 반드시 지정되어야 함
         if (!request.hasValidBookReference()) {
             throw new ValidationException(
@@ -127,6 +133,13 @@ public class RedesignServiceImpl implements RedesignService {
     public Redesign updateRedesign(UUID id, UpdateRedesignRequest request) {
         Redesign redesign = redesignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Redesign", id));
+
+        if (request.imageUrl() != null || request.thumbnailUrl() != null) {
+            imageService.requireVerifiedImage(
+                    request.imageUrl() != null ? request.imageUrl() : redesign.getImageUrl(),
+                    request.thumbnailUrl() != null ? request.thumbnailUrl() : redesign.getThumbnailUrl(),
+                    ImageType.REDESIGN, null, null, null);
+        }
 
         if (request.imageUrl() != null) {
             redesign.setImageUrl(request.imageUrl());

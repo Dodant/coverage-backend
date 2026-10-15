@@ -86,6 +86,10 @@ public class BookCover {
     @Column(nullable = false)
     private Integer commentCount = 0;
 
+    /** 저작권 삭제 요청으로 공개가 중지된 표지. */
+    @Column(nullable = false)
+    private boolean hidden = false;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -119,6 +123,9 @@ public class BookCover {
     public List<CoverCredit> getCredits() {
         return credits;
     }
+
+    public boolean isHidden() { return hidden; }
+    public void setHidden(boolean hidden) { this.hidden = hidden; }
 
     public String getCountryCode() {
         return countryCode;

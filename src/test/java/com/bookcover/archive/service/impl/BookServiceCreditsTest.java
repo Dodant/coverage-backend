@@ -68,7 +68,8 @@ class BookServiceCreditsTest {
                 mock(AuthorRepository.class), mock(PublisherRepository.class), designerRepository,
                 mock(TranslatorRepository.class), mock(WorkRepository.class), mock(UserRepository.class),
                 mock(BookSearchRepository.class), mock(IsbnValidator.class), mock(ContributionService.class),
-                mock(EventPublisher.class), bookCoverRepository, mock(SeriesRepository.class), auditService);
+                mock(EventPublisher.class), bookCoverRepository, mock(SeriesRepository.class), auditService,
+                mock(com.bookcover.archive.service.ImageService.class));
 
         book = new OriginalBook();
         book.setId(UUID.randomUUID());

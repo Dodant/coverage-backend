@@ -29,6 +29,7 @@ public record BookCoverResponse(
     CoverLayout layout,
     Integer likeCount,
     Integer commentCount,
+    boolean hidden,
     Instant createdAt,
     String label,
     Integer printingFrom,
@@ -46,8 +47,8 @@ public record BookCoverResponse(
         }
         return new BookCoverResponse(
             cover.getId(),
-            cover.getImageUrl(),
-            cover.getThumbnailUrl(),
+            cover.isHidden() ? null : cover.getImageUrl(),
+            cover.isHidden() ? null : cover.getThumbnailUrl(),
             cover.getOriginalFileName(),
             cover.getWidth(),
             cover.getHeight(),
@@ -59,6 +60,7 @@ public record BookCoverResponse(
             cover.getLayout(),
             cover.getLikeCount(),
             cover.getCommentCount(),
+            cover.isHidden(),
             cover.getCreatedAt(),
             cover.getLabel(),
             cover.getPrintingFrom(),

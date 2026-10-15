@@ -145,6 +145,9 @@ public class CoverController {
     public ResponseEntity<BookCoverResponse> getCover(@PathVariable UUID id) {
         BookCover cover = bookCoverRepository.findById(id)
                 .orElseThrow(() -> new com.bookcover.archive.exception.ResourceNotFoundException("BookCover", id));
+        if (cover.isHidden()) {
+            throw new com.bookcover.archive.exception.ResourceNotFoundException("BookCover", id);
+        }
         return ResponseEntity.ok(BookCoverResponse.from(cover));
     }
 

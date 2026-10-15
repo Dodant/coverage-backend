@@ -61,7 +61,7 @@ class BookServiceImplTest {
                 mock(TranslatorRepository.class), mock(WorkRepository.class), mock(UserRepository.class),
                 mock(BookSearchRepository.class), isbnValidator, contributionService,
                 eventPublisher, mock(BookCoverRepository.class), mock(SeriesRepository.class),
-                mock(AuditService.class));
+                mock(AuditService.class), mock(com.bookcover.archive.service.ImageService.class));
         when(originalBookRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 

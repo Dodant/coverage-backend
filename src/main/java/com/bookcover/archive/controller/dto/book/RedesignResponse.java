@@ -28,8 +28,8 @@ public record RedesignResponse(
     public static RedesignResponse from(Redesign redesign) {
         return new RedesignResponse(
             redesign.getId(),
-            redesign.getImageUrl(),
-            redesign.getThumbnailUrl(),
+            redesign.getStatus() == ContentStatus.HIDDEN ? null : redesign.getImageUrl(),
+            redesign.getStatus() == ContentStatus.HIDDEN ? null : redesign.getThumbnailUrl(),
             redesign.getDescription(),
             redesign.getOriginalBook() != null ? redesign.getOriginalBook().getId() : null,
             redesign.getOriginalBook() != null ? redesign.getOriginalBook().getTitle() : null,

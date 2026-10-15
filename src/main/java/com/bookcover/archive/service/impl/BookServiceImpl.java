@@ -36,6 +36,8 @@ import com.bookcover.archive.repository.WorkRepository;
 import com.bookcover.archive.service.BookService;
 import com.bookcover.archive.service.AuditService;
 import com.bookcover.archive.service.ContributionService;
+import com.bookcover.archive.service.ImageService;
+import com.bookcover.archive.service.ImageService.ImageType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bookcover.archive.service.dto.AddCoverRequest;
@@ -84,6 +86,7 @@ public class BookServiceImpl implements BookService {
     private final BookCoverRepository bookCoverRepository;
     private final SeriesRepository seriesRepository;
     private final AuditService auditService;
+    private final ImageService imageService;
 
     public BookServiceImpl(
             OriginalBookRepository originalBookRepository,
@@ -100,7 +103,8 @@ public class BookServiceImpl implements BookService {
             EventPublisher eventPublisher,
             BookCoverRepository bookCoverRepository,
             SeriesRepository seriesRepository,
-            AuditService auditService) {
+            AuditService auditService,
+            ImageService imageService) {
         this.originalBookRepository = originalBookRepository;
         this.translatedBookRepository = translatedBookRepository;
         this.authorRepository = authorRepository;
@@ -116,6 +120,7 @@ public class BookServiceImpl implements BookService {
         this.bookCoverRepository = bookCoverRepository;
         this.seriesRepository = seriesRepository;
         this.auditService = auditService;
+        this.imageService = imageService;
     }
 
     @Override
@@ -472,6 +477,9 @@ public class BookServiceImpl implements BookService {
     public BookCover addCover(UUID bookId, AddCoverRequest request, UUID userId) {
         Media book = findActiveBook(bookId);
 
+        imageService.requireVerifiedImage(request.imageUrl(), request.thumbnailUrl(), ImageType.COVER,
+                request.width(), request.height(), request.fileSize());
+
         BookCover cover = new BookCover();
         cover.setImageUrl(request.imageUrl());
         cover.setThumbnailUrl(request.thumbnailUrl());
@@ -586,6 +594,8 @@ public class BookServiceImpl implements BookService {
     }
 
     private BookCover createBookCover(CreateOriginalBookRequest.BookCoverInfo info, CoverType coverType) {
+        imageService.requireVerifiedImage(info.imageUrl(), info.thumbnailUrl(), ImageType.COVER,
+                info.width(), info.height(), info.fileSize());
         BookCover cover = new BookCover();
         cover.setImageUrl(info.imageUrl());
         cover.setThumbnailUrl(info.thumbnailUrl());
@@ -601,6 +611,8 @@ public class BookServiceImpl implements BookService {
     }
 
     private BookCover createBookCover(CreateTranslatedBookRequest.BookCoverInfo info, CoverType coverType) {
+        imageService.requireVerifiedImage(info.imageUrl(), info.thumbnailUrl(), ImageType.COVER,
+                info.width(), info.height(), info.fileSize());
         BookCover cover = new BookCover();
         cover.setImageUrl(info.imageUrl());
         cover.setThumbnailUrl(info.thumbnailUrl());
@@ -616,24 +628,40 @@ public class BookServiceImpl implements BookService {
     }
 
     private void updateBookCover(BookCover cover, UpdateOriginalBookRequest.BookCoverUpdateInfo info) {
+        if (info.imageUrl() != null || info.thumbnailUrl() != null || info.width() != null
+                || info.height() != null || info.fileSize() != null) {
+            imageService.requireVerifiedImage(info.imageUrl() != null ? info.imageUrl() : cover.getImageUrl(),
+                    info.thumbnailUrl() != null ? info.thumbnailUrl() : cover.getThumbnailUrl(), ImageType.COVER,
+                    info.imageUrl() != null ? info.width() : (info.width() != null ? info.width() : cover.getWidth()),
+                    info.imageUrl() != null ? info.height() : (info.height() != null ? info.height() : cover.getHeight()),
+                    info.imageUrl() != null ? info.fileSize() : (info.fileSize() != null ? info.fileSize() : cover.getFileSize()));
+        }
         if (info.imageUrl() != null) cover.setImageUrl(info.imageUrl());
         if (info.thumbnailUrl() != null) cover.setThumbnailUrl(info.thumbnailUrl());
         if (info.originalFileName() != null) cover.setOriginalFileName(info.originalFileName());
-        if (info.width() != null) cover.setWidth(info.width());
-        if (info.height() != null) cover.setHeight(info.height());
-        if (info.fileSize() != null) cover.setFileSize(info.fileSize());
+        if (info.width() != null || info.imageUrl() != null) cover.setWidth(info.width());
+        if (info.height() != null || info.imageUrl() != null) cover.setHeight(info.height());
+        if (info.fileSize() != null || info.imageUrl() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
         applyCredits(cover, info.credits());
     }
 
     private void updateBookCover(BookCover cover, UpdateTranslatedBookRequest.BookCoverUpdateInfo info) {
+        if (info.imageUrl() != null || info.thumbnailUrl() != null || info.width() != null
+                || info.height() != null || info.fileSize() != null) {
+            imageService.requireVerifiedImage(info.imageUrl() != null ? info.imageUrl() : cover.getImageUrl(),
+                    info.thumbnailUrl() != null ? info.thumbnailUrl() : cover.getThumbnailUrl(), ImageType.COVER,
+                    info.imageUrl() != null ? info.width() : (info.width() != null ? info.width() : cover.getWidth()),
+                    info.imageUrl() != null ? info.height() : (info.height() != null ? info.height() : cover.getHeight()),
+                    info.imageUrl() != null ? info.fileSize() : (info.fileSize() != null ? info.fileSize() : cover.getFileSize()));
+        }
         if (info.imageUrl() != null) cover.setImageUrl(info.imageUrl());
         if (info.thumbnailUrl() != null) cover.setThumbnailUrl(info.thumbnailUrl());
         if (info.originalFileName() != null) cover.setOriginalFileName(info.originalFileName());
-        if (info.width() != null) cover.setWidth(info.width());
-        if (info.height() != null) cover.setHeight(info.height());
-        if (info.fileSize() != null) cover.setFileSize(info.fileSize());
+        if (info.width() != null || info.imageUrl() != null) cover.setWidth(info.width());
+        if (info.height() != null || info.imageUrl() != null) cover.setHeight(info.height());
+        if (info.fileSize() != null || info.imageUrl() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
         applyCredits(cover, info.credits());
