@@ -6,6 +6,7 @@ import com.bookcover.archive.domain.book.Redesign;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.media.Media;
+import com.bookcover.archive.exception.SearchException;
 import com.bookcover.archive.repository.OriginalBookRepository;
 import com.bookcover.archive.repository.RedesignRepository;
 import com.bookcover.archive.repository.TranslatedBookRepository;
@@ -101,7 +102,7 @@ public class SearchServiceImpl implements SearchService {
             );
         } catch (Exception e) {
             log.error("Search failed for query: {}", query, e);
-            return SearchResult.empty();
+            throw new SearchException(e);
         }
     }
 
@@ -249,30 +250,18 @@ public class SearchServiceImpl implements SearchService {
         bookCoverSearchRepository.deleteAll();
 
         originalBookRepository.findAll().forEach(book -> {
-            try {
-                BookCoverDocument doc = toDocument(book);
-                bookCoverSearchRepository.save(doc);
-            } catch (Exception e) {
-                log.error("Failed to index original book: {}", book.getId(), e);
-            }
+            BookCoverDocument doc = toDocument(book);
+            bookCoverSearchRepository.save(doc);
         });
 
         translatedBookRepository.findAll().forEach(book -> {
-            try {
-                BookCoverDocument doc = toDocument(book);
-                bookCoverSearchRepository.save(doc);
-            } catch (Exception e) {
-                log.error("Failed to index translated book: {}", book.getId(), e);
-            }
+            BookCoverDocument doc = toDocument(book);
+            bookCoverSearchRepository.save(doc);
         });
 
         redesignRepository.findAll().forEach(redesign -> {
-            try {
-                BookCoverDocument doc = toDocument(redesign);
-                bookCoverSearchRepository.save(doc);
-            } catch (Exception e) {
-                log.error("Failed to index redesign: {}", redesign.getId(), e);
-            }
+            BookCoverDocument doc = toDocument(redesign);
+            bookCoverSearchRepository.save(doc);
         });
 
         log.info("Full reindex completed");

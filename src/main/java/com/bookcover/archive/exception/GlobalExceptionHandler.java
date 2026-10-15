@@ -29,6 +29,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(SearchException.class)
+    public ResponseEntity<ErrorResponse> handleSearch(SearchException ex) {
+        return ResponseEntity.status(ErrorCode.SEARCH_ERROR.getHttpStatus())
+                .body(new ErrorResponse(ErrorCode.SEARCH_ERROR, ex.getMessage(), Map.of()));
+    }
+
     /**
      * ValidationException 처리 - 입력 검증 실패
      */
