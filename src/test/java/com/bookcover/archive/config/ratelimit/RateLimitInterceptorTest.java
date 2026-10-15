@@ -1,5 +1,6 @@
 package com.bookcover.archive.config.ratelimit;
 
+import com.bookcover.archive.config.RateLimitConfig;
 import com.bookcover.archive.config.security.CustomUserDetails;
 import com.bookcover.archive.domain.user.User;
 import com.bookcover.archive.domain.user.UserRole;
@@ -14,6 +15,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.method.HandlerMethod;
 
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -27,7 +29,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class RateLimitInterceptorTest {
 
     private final RateLimitService service = mock(RateLimitService.class);
-    private final RateLimitInterceptor interceptor = new RateLimitInterceptor(service);
+    private final RateLimitConfig config = new RateLimitConfig();
+    private final RateLimitInterceptor interceptor = new RateLimitInterceptor(service, config);
     private final MockHttpServletRequest request = new MockHttpServletRequest();
     private final MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -63,6 +66,16 @@ class RateLimitInterceptorTest {
         UUID id = login();
         interceptor.preHandle(request, response, handler("limited"));
         verify(service).checkAndRecord("user:" + id, RateLimitAction.COMMENT);
+    }
+
+    @Test
+    void skipsExemptUsers() throws Exception {
+        UUID id = login();
+        config.setExemptUserIds(Set.of(id));
+        interceptor.preHandle(request, response, handler("limited"));
+        response.setStatus(400);
+        interceptor.afterCompletion(request, response, handler("limited"), null);
+        verifyNoInteractions(service);
     }
 
     @Test

@@ -3,6 +3,9 @@ package com.bookcover.archive.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Set;
+import java.util.UUID;
+
 /**
  * 레이트 리밋 설정.
  * application.yml의 rate-limit 설정을 바인딩합니다.
@@ -16,6 +19,8 @@ public class RateLimitConfig {
     private ActionLimit like = new ActionLimit(100, 60);
     private ActionLimit report = new ActionLimit(5, 3600);
     private ActionLimit takedown = new ActionLimit(5, 3600);
+    /** 레이트 리밋을 적용하지 않는 사용자 ID (서지 자동 등록 에이전트 계정 등). 이메일은 탈퇴 후 재사용될 수 있어 ID로 지정한다 */
+    private Set<UUID> exemptUserIds = Set.of();
 
     public ActionLimit getUpload() {
         return upload;
@@ -55,6 +60,14 @@ public class RateLimitConfig {
 
     public void setTakedown(ActionLimit takedown) {
         this.takedown = takedown;
+    }
+
+    public Set<UUID> getExemptUserIds() {
+        return exemptUserIds;
+    }
+
+    public void setExemptUserIds(Set<UUID> exemptUserIds) {
+        this.exemptUserIds = exemptUserIds;
     }
 
     /**

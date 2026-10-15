@@ -4,12 +4,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import com.bookcover.archive.config.security.CustomUserDetails;
+import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.user.UserRole;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -194,6 +202,23 @@ class ImageValidatorTest {
             assertFalse(result.valid());
             assertTrue(result.errors().stream()
                     .anyMatch(e -> e.contains("resolution")));
+        }
+
+        @Test
+        @DisplayName("Exempt user skips minimum resolution")
+        void exemptUserSkipsResolution() throws IOException {
+            User user = new User();
+            user.setId(UUID.randomUUID());
+            user.setRole(UserRole.MEMBER);
+            CustomUserDetails principal = new CustomUserDetails(user);
+            ReflectionTestUtils.setField(validator, "resolutionExemptUserIds", Set.of(user.getId()));
+            try {
+                SecurityContextHolder.getContext().setAuthentication(
+                        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+                assertTrue(validator.validate(createValidImageFile(320, 500)).valid());
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
         }
     }
 
