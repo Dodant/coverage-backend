@@ -29,7 +29,12 @@ public record AddCoverRequest(
     Integer height,
     Long fileSize,
     ImageSource imageSource,
+    @Size(max = 1000, message = "출처 URL은 1000자 이하여야 합니다")
     String sourceUrl,
+
+    /** 이미지 제공처 이름 (예: Open Library, Penguin Random House) */
+    @Size(max = 100, message = "출처 이름은 100자 이하여야 합니다")
+    String sourceName,
 
     @Size(max = 100, message = "표지 설명은 100자 이하여야 합니다")
     String label,

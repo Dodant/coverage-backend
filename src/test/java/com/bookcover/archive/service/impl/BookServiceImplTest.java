@@ -75,7 +75,7 @@ class BookServiceImplTest {
                 "채식주의자", "채식주의자", "KR", "ko", 2007, "소설", null,
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
-                        null, null, null, null, null, null),
+                        null, null, null, null, null, null, null),
                 null, null));
 
         assertThat(book.getAuthor()).isSameAs(existing);

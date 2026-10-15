@@ -1,6 +1,7 @@
 package com.bookcover.archive.service.dto;
 
 import com.bookcover.archive.domain.book.ImageSource;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -32,7 +33,9 @@ public record UpdateTranslatedBookRequest(
     @Size(max = 20, message = "시리즈 권 번호는 20자 이하여야 합니다")
     String seriesNumber,
 
+    @Valid
     BookCoverUpdateInfo frontCover,
+    @Valid
     BookCoverUpdateInfo backCover
 ) {
     /**
@@ -46,7 +49,11 @@ public record UpdateTranslatedBookRequest(
         Integer height,
         Long fileSize,
         ImageSource imageSource,
+        @Size(max = 1000, message = "출처 URL은 1000자 이하여야 합니다")
         String sourceUrl,
+        /** 이미지 제공처 이름 (예: Open Library, Penguin Random House) */
+        @Size(max = 100, message = "출처 이름은 100자 이하여야 합니다")
+        String sourceName,
 
         /** 주면 크레딧 전체를 교체한다 (빈 목록이면 모두 삭제). null이면 그대로 둔다 */
         List<CreditInfo> credits

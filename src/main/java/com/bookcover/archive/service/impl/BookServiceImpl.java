@@ -490,6 +490,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(CoverType.FRONT);
         cover.setImageSource(request.imageSource());
         cover.setSourceUrl(request.sourceUrl());
+        cover.setSourceName(request.sourceName());
         cover.setLabel(request.label());
         cover.setPrintingFrom(request.printingFrom());
         cover.setUsedFrom(request.usedFrom());
@@ -606,6 +607,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        cover.setSourceName(info.sourceName());
         applyCredits(cover, info.credits());
         return cover;
     }
@@ -623,6 +625,7 @@ public class BookServiceImpl implements BookService {
         cover.setCoverType(coverType);
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
+        cover.setSourceName(info.sourceName());
         applyCredits(cover, info.credits());
         return cover;
     }
@@ -644,6 +647,7 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null || info.imageUrl() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        if (info.sourceName() != null) cover.setSourceName(info.sourceName());
         applyCredits(cover, info.credits());
     }
 
@@ -664,6 +668,7 @@ public class BookServiceImpl implements BookService {
         if (info.fileSize() != null || info.imageUrl() != null) cover.setFileSize(info.fileSize());
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
+        if (info.sourceName() != null) cover.setSourceName(info.sourceName());
         applyCredits(cover, info.credits());
     }
 
@@ -774,6 +779,7 @@ public class BookServiceImpl implements BookService {
         s.put("imageUrl", cover.getImageUrl());
         s.put("thumbnailUrl", cover.getThumbnailUrl());
         s.put("sourceUrl", cover.getSourceUrl());
+        s.put("sourceName", cover.getSourceName());
         s.put("credits", cover.getCredits().stream()
                 .map(c -> {
                     Map<String, Object> m = new LinkedHashMap<>();

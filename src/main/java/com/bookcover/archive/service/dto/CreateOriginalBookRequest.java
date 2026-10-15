@@ -1,6 +1,7 @@
 package com.bookcover.archive.service.dto;
 
 import com.bookcover.archive.domain.book.ImageSource;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -58,8 +59,10 @@ public record CreateOriginalBookRequest(
     UUID workId,
 
     @NotNull(message = "앞면 북커버 정보는 필수입니다")
+    @Valid
     BookCoverInfo frontCover,
 
+    @Valid
     BookCoverInfo backCover,
 
     UUID createdById
@@ -81,7 +84,11 @@ public record CreateOriginalBookRequest(
         Integer height,
         Long fileSize,
         ImageSource imageSource,
+        @Size(max = 1000, message = "출처 URL은 1000자 이하여야 합니다")
         String sourceUrl,
+        /** 이미지 제공처 이름 (예: Open Library, Penguin Random House) */
+        @Size(max = 100, message = "출처 이름은 100자 이하여야 합니다")
+        String sourceName,
 
         /** 역할별 크레딧 */
         List<CreditInfo> credits
