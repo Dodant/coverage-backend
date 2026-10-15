@@ -48,7 +48,7 @@ public interface BookService {
 
     // 중복 검사
     List<Media> findDuplicatesByIsbn(String isbn);
-    List<Media> findSimilarBooks(String title, String authorName, int year);
+    List<Media> findSimilarBooks(String title, String authorName, Integer year);
 
     // 작품 그룹화
     void linkToWork(UUID bookId, UUID workId);

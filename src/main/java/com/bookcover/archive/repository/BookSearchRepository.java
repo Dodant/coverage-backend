@@ -27,10 +27,10 @@ public interface BookSearchRepository {
      *
      * @param title 제목
      * @param authorName 작가 이름
-     * @param year 출판 연도
+     * @param year 출판 연도 (null이면 연도 조건 없이, 연도를 모르는 책은 항상 포함)
      * @return 유사 책 목록
      */
-    List<Media> findSimilarBooks(String title, String authorName, int year);
+    List<Media> findSimilarBooks(String title, String authorName, Integer year);
 
     /**
      * 제목으로 유사한 책을 검색합니다.
