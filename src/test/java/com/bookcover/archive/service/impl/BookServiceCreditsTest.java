@@ -4,6 +4,7 @@ import com.bookcover.archive.domain.audit.AuditEntityType;
 import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.CoverCredit;
 import com.bookcover.archive.domain.book.CreditRole;
+import com.bookcover.archive.domain.book.ImageSource;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.contributor.Designer;
 import com.bookcover.archive.event.EventPublisher;
@@ -92,6 +93,14 @@ class BookServiceCreditsTest {
     }
 
     @Test
+    void addedCoverKeepsSourceUrlAndName() {
+        BookCover cover = addCover();
+
+        assertThat(cover.getSourceUrl()).isEqualTo("https://covers.openlibrary.org/b/id/1.jpg");
+        assertThat(cover.getSourceName()).isEqualTo("Open Library");
+    }
+
+    @Test
     void duplicateCreditsAreStoredOnce() {
         BookCover cover = addCover(credit("가", CreditRole.DESIGN), credit("가", CreditRole.DESIGN),
                 credit("가", CreditRole.ILLUSTRATION));
@@ -151,13 +160,14 @@ class BookServiceCreditsTest {
     }
 
     private BookCover addCover(CreditInfo... credits) {
-        return service.addCover(book.getId(), new AddCoverRequest("i", "t", "f", null, null, null, null, null,
+        return service.addCover(book.getId(), new AddCoverRequest("i", "t", "f", null, null, null, ImageSource.LINK,
+                "https://covers.openlibrary.org/b/id/1.jpg", "Open Library",
                 null, null, null, null, null, Arrays.asList(credits)), null);
     }
 
     private void updateFrontCredits(List<CreditInfo> credits) {
         UpdateOriginalBookRequest.BookCoverUpdateInfo front = new UpdateOriginalBookRequest.BookCoverUpdateInfo(
-                null, null, null, null, null, null, null, null, credits == null ? null : Collections.unmodifiableList(credits));
+                null, null, null, null, null, null, null, null, null, credits == null ? null : Collections.unmodifiableList(credits));
         service.updateOriginalBook(book.getId(), new UpdateOriginalBookRequest(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, front, null), editor);
     }

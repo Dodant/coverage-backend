@@ -72,8 +72,13 @@ public class BookCover {
     @Enumerated(EnumType.STRING)
     private ImageSource imageSource;
 
-    /** 출처 URL (링크에서 가져온 경우) */
+    /** 출처 URL (링크에서 가져온 경우). 게시중단 요청 시 원 출처 추적용 */
+    @Column(length = 1000)
     private String sourceUrl;
+
+    /** 이미지 제공처 이름 (예: Open Library, Penguin Random House) */
+    @Column(length = 100)
+    private String sourceName;
 
     /** 대표 색상 (HEX 코드) */
     @Column(length = 7)
@@ -268,6 +273,14 @@ public class BookCover {
 
     public void setSourceUrl(String sourceUrl) {
         this.sourceUrl = sourceUrl;
+    }
+
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    public void setSourceName(String sourceName) {
+        this.sourceName = sourceName;
     }
 
     public String getDominantColor() {
