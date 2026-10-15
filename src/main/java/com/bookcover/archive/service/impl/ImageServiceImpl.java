@@ -286,11 +286,22 @@ public class ImageServiceImpl implements ImageService {
 
     /**
      * BufferedImage를 바이트 배열로 변환합니다.
+     * JPEG 인코더는 알파 채널을 쓰지 못하고 ImageIO.write가 false만 돌려줘 빈 파일이 저장됐다
+     * (.jpg 이름으로 온 투명 PNG). 알파가 있으면 흰 배경에 합치고, 인코딩에 실패하면 예외로 막는다.
      */
-    private byte[] imageToBytes(BufferedImage image, String extension) throws IOException {
+    static byte[] imageToBytes(BufferedImage image, String extension) throws IOException {
+        String formatName = extension.equalsIgnoreCase("jpg") ? "jpeg" : extension.toLowerCase();
+        if (formatName.equals("jpeg") && image.getColorModel().hasAlpha()) {
+            BufferedImage rgb = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = rgb.createGraphics();
+            g.drawImage(image, 0, 0, java.awt.Color.WHITE, null);
+            g.dispose();
+            image = rgb;
+        }
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        String formatName = extension.equalsIgnoreCase("jpg") ? "jpeg" : extension;
-        ImageIO.write(image, formatName, baos);
+        if (!ImageIO.write(image, formatName, baos) || baos.size() == 0) {
+            throw new IOException("이미지를 " + formatName + " 형식으로 저장할 수 없습니다");
+        }
         return baos.toByteArray();
     }
 
