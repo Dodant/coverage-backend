@@ -433,15 +433,20 @@ def print_table(outcome):
     print(json.dumps(outcome["summary"], ensure_ascii=False), file=sys.stderr)
 
 
-# ---- 결과 뷰어 ----
+# ---- 실행 기록 API (백오피스가 읽는다) ----
 
-class Viewer(http.server.BaseHTTPRequestHandler):
-    """runs/의 실행 기록(*.json, plan 제외)을 viewer.html로 보여준다. 읽기 전용, localhost 전용."""
+# 백오피스(coverage-backoffice) 주소. 실행 기록은 에이전트를 돌린 컴퓨터에만 있어 백오피스가 이 서버에서 직접 읽는다
+BACKOFFICE_ORIGIN = os.environ.get("COVERAGE_BACKOFFICE_ORIGIN", "http://localhost:5173")
+
+
+class RunsApi(http.server.BaseHTTPRequestHandler):
+    """runs/의 실행 기록(*.json, plan 제외)을 JSON으로 준다. 읽기 전용, localhost 전용."""
 
     def do_GET(self):
+        port = self.server.server_address[1]
+        if self.headers.get("Host") not in {f"localhost:{port}", f"127.0.0.1:{port}"}:  # DNS rebinding 차단
+            return self.send_error(403)
         path = urllib.parse.unquote(urllib.parse.urlparse(self.path).path)
-        if path == "/":
-            return self._send((HERE / "viewer.html").read_bytes(), "text/html; charset=utf-8")
         if path == "/runs":
             runs = []
             for f in sorted(RUNS.glob("*.json"), reverse=True):
@@ -461,6 +466,7 @@ class Viewer(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", BACKOFFICE_ORIGIN)
         self.end_headers()
         self.wfile.write(body)
 
@@ -480,7 +486,7 @@ def main():
     sp = sub.add_parser("apply", help="plan JSON(원서+번역서) 등록. 기본은 dry-run, --execute일 때만 POST")
     sp.add_argument("plan_json")
     sp.add_argument("--execute", action="store_true", help="실제 등록")
-    sub.add_parser("serve", help="runs/ 결과 뷰어 (http://localhost:PORT)").add_argument("--port", type=int, default=8765)
+    sub.add_parser("serve", help="runs/ 실행 기록 JSON API, 백오피스가 읽는다 (http://localhost:PORT/runs)").add_argument("--port", type=int, default=8765)
     sub.add_parser("self-check", help="ISBN·형식 판별 assert self-check")
     a = p.parse_args()
 
@@ -501,8 +507,8 @@ def main():
         elif a.cmd == "search":
             out = search(a.title)
         elif a.cmd == "serve":
-            print(f"http://localhost:{a.port}", file=sys.stderr)
-            http.server.ThreadingHTTPServer(("127.0.0.1", a.port), Viewer).serve_forever()
+            print(f"http://localhost:{a.port}/runs (백오피스 {BACKOFFICE_ORIGIN}에서 읽기 허용)", file=sys.stderr)
+            http.server.ThreadingHTTPServer(("127.0.0.1", a.port), RunsApi).serve_forever()
         elif a.cmd == "self-check":
             out = self_check()
         else:

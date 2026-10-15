@@ -22,7 +22,7 @@ python3 $A cover-size <이미지URL>     # 실제 형식·픽셀 크기
 python3 $A find-by-isbn <ISBN>       # 서버 중복 조회 (13·10자리 둘 다)
 python3 $A search "<제목>"            # 서버 제목 검색 (참고용)
 python3 $A apply <plan.json> [--execute]   # 기본 dry-run, runs/에 결과 저장
-python3 $A serve [--port 8765]       # runs/ 결과 뷰어 http://localhost:8765
+python3 $A serve [--port 8765]       # runs/ 실행 기록 JSON API → 백오피스(coverage-backoffice) '등록 기록' 화면이 읽는다
 ```
 
 ## 환경
@@ -39,7 +39,7 @@ python3 $A serve [--port 8765]       # runs/ 결과 뷰어 http://localhost:8765
 3. **필드 교차 확인**: 판마다 ISBN·연도·출판사·번역자를 출처 URL과 함께 `sources`에 모은다.
 4. **표지**: 후보를 모으고 전부 내려받아 눈으로 확인 → 가장 이른 쇄 후보만 `coverSourceUrls`.
 5. `.claude/skills/register-book/runs/<YYYY-MM-DD>_<제목>.plan.json` 작성 → `apply`(dry-run) → 표를 사용자에게 보여주고 승인 요청.
-   `--yes`면 바로 `apply --execute`. 끝나면 결과 요약과 `serve` 뷰어 안내.
+   `--yes`면 바로 `apply --execute`. 끝나면 결과 요약과 백오피스 '등록 기록' 화면 안내(`serve`가 떠 있어야 한다).
 
 ## 조회처 (WebFetch 또는 curl)
 - Wikidata 검색: `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=<제목>&language=ko&type=item&format=json`
@@ -128,7 +128,8 @@ SPARQL로 수상작(`?work wdt:P166 ?award`)과 수상 작가의 대표작(`?aut
   `runs/`는 gitignore 대상이다.
 - 상태: `created`, `skipped`(중복), `cover-upgraded`, `failed`, dry-run에서는 `would-create`/`would-upgrade-cover`. 검토 필요는 `plan.review`.
 - 같은 plan을 다시 실행하면 전부 `skipped`(멱등). 더 큰 표지가 새로 생긴 경우만 `cover-upgraded`.
-- `python3 $A serve`로 실행 기록을 브라우저에서 본다(표지, 필드별 출처, 후보, 다른 쇄 표지, 검토 필요).
+- 실행 기록은 백오피스 '등록 기록' 화면에서 본다(`python3 $A serve`가 runs/를 읽기 전용 JSON으로 제공, 허용 출처 `COVERAGE_BACKOFFICE_ORIGIN`, 기본 http://localhost:5173).
+- 언어가 달라도 비슷한 표지 묶음은 사람이 백오피스 '표지 묶기'에서 만든다(백엔드 `book_covers.similar_group_id`). 에이전트는 묶음을 추측해 만들지 않는다.
 
 ## 백엔드 API 메모
 - 표지는 2단계: `POST /covers`(multipart `file`) → 응답의 URL로 `frontCover` 구성. 서버는 업로드 기록이 있는 URL만 받는다.
