@@ -190,14 +190,14 @@ public class OriginalBookController {
      * 유사한 책을 검색합니다.
      */
     @GetMapping("/find-similar")
-    @Operation(summary = "유사 책 검색", description = "제목, 저자, 연도로 유사한 책을 검색합니다.")
+    @Operation(summary = "유사 책 검색", description = "제목, 저자, 연도(선택, ±2년)로 유사한 책을 검색합니다. 연도를 모르는 책도 포함합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "검색 완료")
     })
     public ResponseEntity<List<DuplicateCheckResponse>> findSimilar(
             @RequestParam String title,
             @RequestParam String authorName,
-            @RequestParam int year) {
+            @RequestParam(required = false) Integer year) {
         List<Media> similar = bookService.findSimilarBooks(title, authorName, year);
         List<DuplicateCheckResponse> response = similar.stream()
                 .map(media -> new DuplicateCheckResponse(media.getId(), media.getTitle(), media.getClass().getSimpleName()))

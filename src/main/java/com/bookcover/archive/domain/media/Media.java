@@ -49,7 +49,8 @@ public abstract class Media {
     private String title;
 
     /** ISO 3166-1 국가 코드 */
-    @Column(nullable = false, length = 2)
+    /** 모르면 null (2026-10부터 선택) */
+    @Column(length = 2)
     private String countryCode;
 
     /** ISO 639-1 언어 코드 */
@@ -57,7 +58,7 @@ public abstract class Media {
     private String languageCode;
 
     /** 출판/발매 연도 (YYYY 형식) */
-    @Column(nullable = false)
+    /** 모르면 null (2026-10부터 선택) */
     private Integer year;
 
     /** 콘텐츠 상태 */

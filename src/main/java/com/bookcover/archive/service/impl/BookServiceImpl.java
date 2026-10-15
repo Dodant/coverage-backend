@@ -458,7 +458,7 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Media> findSimilarBooks(String title, String authorName, int year) {
+    public List<Media> findSimilarBooks(String title, String authorName, Integer year) {
         return bookSearchRepository.findSimilarBooks(title, authorName, year);
     }
 

@@ -48,7 +48,7 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
 
 
     @Override
-    public List<Media> findSimilarBooks(String title, String authorName, int year) {
+    public List<Media> findSimilarBooks(String title, String authorName, Integer year) {
         List<Media> results = new ArrayList<>();
 
         // 원서에서 유사 항목 검색
@@ -58,13 +58,13 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
             WHERE (LOWER(o.title) LIKE LOWER(CONCAT('%', :title, '%'))
                OR LOWER(o.originalTitle) LIKE LOWER(CONCAT('%', :title, '%')))
               AND (a.name LIKE CONCAT('%', :authorName, '%') OR :authorName IS NULL OR :authorName = '')
-              AND (o.year BETWEEN :yearStart AND :yearEnd)
+              AND (:yearStart IS NULL OR o.year IS NULL OR o.year BETWEEN :yearStart AND :yearEnd)
             """;
         TypedQuery<Media> originalBookQuery = entityManager.createQuery(originalQuery, Media.class);
         originalBookQuery.setParameter("title", title);
         originalBookQuery.setParameter("authorName", authorName);
-        originalBookQuery.setParameter("yearStart", year - 2);
-        originalBookQuery.setParameter("yearEnd", year + 2);
+        originalBookQuery.setParameter("yearStart", year != null ? year - 2 : null);
+        originalBookQuery.setParameter("yearEnd", year != null ? year + 2 : null);
         originalBookQuery.setMaxResults(20);
         results.addAll(originalBookQuery.getResultList());
 
@@ -74,13 +74,13 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
             LEFT JOIN t.author a
             WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :title, '%'))
               AND (a.name LIKE CONCAT('%', :authorName, '%') OR :authorName IS NULL OR :authorName = '')
-              AND (t.year BETWEEN :yearStart AND :yearEnd)
+              AND (:yearStart IS NULL OR t.year IS NULL OR t.year BETWEEN :yearStart AND :yearEnd)
             """;
         TypedQuery<Media> translatedBookQuery = entityManager.createQuery(translatedQuery, Media.class);
         translatedBookQuery.setParameter("title", title);
         translatedBookQuery.setParameter("authorName", authorName);
-        translatedBookQuery.setParameter("yearStart", year - 2);
-        translatedBookQuery.setParameter("yearEnd", year + 2);
+        translatedBookQuery.setParameter("yearStart", year != null ? year - 2 : null);
+        translatedBookQuery.setParameter("yearEnd", year != null ? year + 2 : null);
         translatedBookQuery.setMaxResults(20);
         results.addAll(translatedBookQuery.getResultList());
 

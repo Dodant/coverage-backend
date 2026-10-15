@@ -129,4 +129,20 @@ class BookServiceImplTest {
 
         verifyNoInteractions(contributionService, eventPublisher);
     }
+
+    @Test
+    void originalTitleDefaultsToTitleAndYearCountryGenreAreOptional() {
+        CreateOriginalBookRequest request = new CreateOriginalBookRequest(
+                "채식주의자", null, null, "ko", null, null, null,
+                null, "한강", null, null, null, null, null, null, null,
+                new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
+                        null, null, null, null, null, null, null),
+                null, null);
+
+        assertThat(request.originalTitle()).isEqualTo("채식주의자");
+        OriginalBook book = service.createOriginalBook(request);
+        assertThat(book.getYear()).isNull();
+        assertThat(book.getCountryCode()).isNull();
+        assertThat(book.getGenre()).isNull();
+    }
 }

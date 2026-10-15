@@ -36,7 +36,7 @@ public class OriginalBook extends Media {
     private String originalTitle;
 
     /** 장르 */
-    @Column(nullable = false)
+    /** 모르면 null (2026-10부터 선택) */
     private String genre;
 
     /** ISBN (고유) */

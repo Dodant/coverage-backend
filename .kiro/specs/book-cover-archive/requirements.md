@@ -28,7 +28,7 @@
 
 #### Acceptance Criteria
 
-1.1. WHEN 회원이 원서 등록 폼을 제출하면 THEN THE Archive_System SHALL 책 제목, 원서 제목, 나라, 언어, 연도, 작가, 출판사, 장르, 앞면 북커버를 필수 항목으로 검증한다
+1.1. WHEN 회원이 원서 등록 폼을 제출하면 THEN THE Archive_System SHALL 책 제목, 언어, 앞면 북커버를 필수 항목으로 검증한다. 원서 제목·나라·연도·작가·출판사·장르는 모르면 생략할 수 있고 원서 제목이 없으면 책 제목을 쓴다 (2026-10 변경: 서지가 덜 갖춰진 판도 받는다)
 1.2. WHERE ISBN이 제공되는 경우 THE Archive_System SHALL ISBN 형식을 검증하고 저장한다
 1.3. WHEN 앞면 북커버 이미지가 누락된 경우 THEN THE Archive_System SHALL 등록을 거부하고 오류 메시지를 표시한다
 1.4. WHERE 뒷면 북커버가 제공되는 경우 THE Archive_System SHALL 해당 이미지를 선택적으로 저장한다
@@ -43,7 +43,7 @@
 #### Acceptance Criteria
 
 2.1. WHEN 회원이 번역서를 등록하면 THEN THE Archive_System SHALL 해당 번역서를 기존 원서와 연결한다
-2.2. WHEN 번역서 등록 폼을 제출하면 THEN THE Archive_System SHALL 각국 책 제목, 나라, 언어, 연도, 작가, 옮긴이, 출판사, 앞면 북커버를 필수 항목으로 검증한다
+2.2. WHEN 번역서 등록 폼을 제출하면 THEN THE Archive_System SHALL 각국 책 제목, 언어, 앞면 북커버를 필수 항목으로 검증한다. 나라·연도·작가·옮긴이·출판사는 모르면 생략할 수 있다 (2026-10 변경)
 2.3. WHERE ISBN이 제공되는 경우 THE Archive_System SHALL ISBN 형식을 검증하고 저장한다
 2.4. WHERE 뒷면 북커버가 제공되는 경우 THE Archive_System SHALL 해당 이미지를 선택적으로 저장한다
 2.5. WHERE 에디션 정보가 제공되면 THE Archive_System SHALL 에디션 정보를 번역서와 연결하여 저장한다
