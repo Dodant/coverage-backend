@@ -6,11 +6,19 @@ import com.bookcover.archive.domain.social.CommentTargetType;
 import com.bookcover.archive.domain.social.Like;
 import com.bookcover.archive.domain.social.LikeTargetType;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.book.BookCover;
+import com.bookcover.archive.domain.book.OriginalBook;
+import com.bookcover.archive.domain.media.Media;
+import com.bookcover.archive.event.ContentEvent;
+import com.bookcover.archive.event.ContentEventType;
+import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.exception.ResourceNotFoundException;
 import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.BookCoverRepository;
 import com.bookcover.archive.repository.CommentRepository;
 import com.bookcover.archive.repository.LikeRepository;
+import com.bookcover.archive.repository.OriginalBookRepository;
+import com.bookcover.archive.repository.TranslatedBookRepository;
 import com.bookcover.archive.repository.RedesignRepository;
 import com.bookcover.archive.repository.UserRepository;
 import com.bookcover.archive.service.SocialService;
@@ -40,18 +48,27 @@ public class SocialServiceImpl implements SocialService {
     private final UserRepository userRepository;
     private final BookCoverRepository bookCoverRepository;
     private final RedesignRepository redesignRepository;
+    private final OriginalBookRepository originalBookRepository;
+    private final TranslatedBookRepository translatedBookRepository;
+    private final EventPublisher eventPublisher;
 
     public SocialServiceImpl(
             LikeRepository likeRepository,
             CommentRepository commentRepository,
             UserRepository userRepository,
             BookCoverRepository bookCoverRepository,
-            RedesignRepository redesignRepository) {
+            RedesignRepository redesignRepository,
+            OriginalBookRepository originalBookRepository,
+            TranslatedBookRepository translatedBookRepository,
+            EventPublisher eventPublisher) {
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.bookCoverRepository = bookCoverRepository;
         this.redesignRepository = redesignRepository;
+        this.originalBookRepository = originalBookRepository;
+        this.translatedBookRepository = translatedBookRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     // 좋아요 기능 구현
@@ -71,6 +88,7 @@ public class SocialServiceImpl implements SocialService {
             // 좋아요 취소
             likeRepository.delete(existingLike.get());
             decrementLikeCount(targetType, targetId);
+            publishLikeChange(targetType, targetId);
             return false;
         } else {
             // 좋아요 추가
@@ -81,6 +99,7 @@ public class SocialServiceImpl implements SocialService {
             like.setCreatedAt(Instant.now());
             likeRepository.save(like);
             incrementLikeCount(targetType, targetId);
+            publishLikeChange(targetType, targetId);
             return true;
         }
     }
@@ -202,6 +221,25 @@ public class SocialServiceImpl implements SocialService {
             case ORIGINAL_COVER, TRANSLATED_COVER -> bookCoverRepository.decrementLikeCount(targetId);
             case REDESIGN -> redesignRepository.decrementLikeCount(targetId);
         }
+    }
+
+    /** Requirements: 8.3, 4.1 - 좋아요 수 변경을 커밋 후 검색 색인에 전달한다. */
+    private void publishLikeChange(LikeTargetType targetType, UUID targetId) {
+        if (targetType == LikeTargetType.REDESIGN) {
+            eventPublisher.publishContentEvent(new ContentEvent(ContentEventType.REDESIGN_UPDATED, targetId, null));
+            return;
+        }
+        BookCover cover = bookCoverRepository.findById(targetId)
+                .orElseThrow(() -> new ResourceNotFoundException("BookCover", targetId));
+        Media book = cover.getBook();
+        if (book == null) {
+            book = originalBookRepository.findByBackCoverId(targetId).<Media>map(value -> value)
+                    .or(() -> translatedBookRepository.findByBackCoverId(targetId))
+                    .orElseThrow(() -> new ResourceNotFoundException("BookForCover", targetId));
+        }
+        ContentEventType type = book instanceof OriginalBook
+                ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED;
+        eventPublisher.publishContentEvent(new ContentEvent(type, book.getId(), null));
     }
 
     private void incrementCommentCount(CommentTargetType targetType, UUID targetId) {
