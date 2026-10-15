@@ -13,7 +13,7 @@ import java.util.UUID;
  * 번역서 등록 요청 DTO.
  *
  * Requirements:
- * - 2.2: 각국 책 제목, 나라, 언어, 연도, 작가, 옮긴이, 출판사, 앞면 북커버를 필수 항목으로 검증
+ * - 2.2: 각국 책 제목, 언어, 앞면 북커버는 필수. 나라·연도는 모르면 생략할 수 있다 (2026-10 변경)
  * - 2.3: ISBN이 제공되는 경우 ISBN 형식을 검증하고 저장
  * - 2.5: 에디션 정보가 제공되면 에디션 정보를 번역서와 연결하여 저장
  */
@@ -21,7 +21,6 @@ public record CreateTranslatedBookRequest(
     @NotBlank(message = "책 제목은 필수입니다")
     String title,
 
-    @NotBlank(message = "국가 코드는 필수입니다")
     @Size(min = 2, max = 2, message = "국가 코드는 2자리여야 합니다")
     String countryCode,
 
@@ -29,7 +28,6 @@ public record CreateTranslatedBookRequest(
     @Size(min = 2, max = 2, message = "언어 코드는 2자리여야 합니다")
     String languageCode,
 
-    @NotNull(message = "출판 연도는 필수입니다")
     Integer year,
 
     String isbn,
