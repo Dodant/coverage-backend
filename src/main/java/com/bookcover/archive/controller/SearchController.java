@@ -7,12 +7,14 @@ import com.bookcover.archive.service.dto.BrowseResultItem;
 import com.bookcover.archive.service.dto.SearchFilters;
 import com.bookcover.archive.service.dto.SearchResult;
 import com.bookcover.archive.service.dto.SortOption;
+import com.bookcover.archive.exception.ValidationException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -35,6 +38,8 @@ import java.util.UUID;
 @RequestMapping("/search")
 @Tag(name = "Search", description = "검색 및 브라우징 관련 API")
 public class SearchController {
+
+    private static final int MAX_LATEST_PAGE_SIZE = 60;
 
     private final SearchService searchService;
 
@@ -95,6 +100,28 @@ public class SearchController {
 
         SearchResult result = searchService.search(query, filters, pageable);
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 첫 화면에서 공개된 원서·번역서 대표 표지와 리디자인을 최신순으로 보여줍니다.
+     *
+     * Requirements: 8.3 - 등록일순 정렬
+     */
+    @GetMapping("/browse/latest")
+    @Operation(summary = "최신 북커버 조회", description = "공개된 원서·번역서 대표 표지와 리디자인을 등록일 내림차순으로 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "400", description = "잘못된 페이지 번호 또는 크기")
+    })
+    public ResponseEntity<BrowseResult> browseLatest(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "24") int size) {
+        if (page < 0 || size < 1 || size > MAX_LATEST_PAGE_SIZE) {
+            throw new ValidationException("페이지 번호 또는 크기가 올바르지 않습니다",
+                    Map.of("page", page, "size", size, "maxSize", MAX_LATEST_PAGE_SIZE));
+        }
+        Page<BookCoverDocument> documents = searchService.browseLatest(PageRequest.of(page, size));
+        return ResponseEntity.ok(toBrowseResult("latest", "all", documents, documents.getTotalElements()));
     }
 
     /**

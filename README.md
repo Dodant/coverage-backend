@@ -48,7 +48,7 @@ Every path is prefixed with `/api`. See Swagger for the full spec.
 | `/auth` | Sign up, log in, refresh token (single-use: each refresh returns a new one; clients must store it and must not refresh concurrently), log out (`POST /auth/logout` with the refresh token) | None |
 | `/books/original`, `/books/translated`, `/books/{bookId}/covers` | Original books, translations, cover variants | GET is public |
 | `/covers`, `/redesigns` | Cover image upload, redesigns | GET is public |
-| `/search` (browsing under `/search/browse/...`), `/tags`, `/authors`, `/publishers`, `/designers`, `/series` | Search, browsing, entities | GET is public |
+| `/search` (latest gallery: `GET /search/browse/latest?page=0&size=24`; other browsing under `/search/browse/...`), `/tags`, `/authors`, `/publishers`, `/designers`, `/series` | Search, browsing, entities | GET is public |
 | `/likes`, `/comments`, `/collections` | Social features, collections | Required (except GET on public/shared collections) |
 | `/users` | Profiles, account deletion (`DELETE /users/me` with `{"password"}`) | Required |
 | `/reports` | Content reports | Required |

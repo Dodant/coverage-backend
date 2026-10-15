@@ -24,6 +24,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -220,6 +221,18 @@ public class SearchServiceImpl implements SearchService {
                 doc.getLikeCount(),
                 doc.getCreatedAt()
         );
+    }
+
+    @Override
+    public Page<BookCoverDocument> browseLatest(Pageable pageable) {
+        Pageable latestPage = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        try {
+            return bookCoverSearchRepository.findByStatus(PUBLISHED_STATUS, latestPage);
+        } catch (Exception e) {
+            log.error("최신 북커버 조회에 실패했습니다", e);
+            throw new SearchException(e);
+        }
     }
 
     @Override

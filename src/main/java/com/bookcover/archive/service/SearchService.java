@@ -34,6 +34,13 @@ public interface SearchService {
     SearchResult search(String query, SearchFilters filters, Pageable pageable);
 
     /**
+     * 공개된 원서·번역서 대표 표지와 리디자인을 최신순으로 조회합니다.
+     *
+     * Requirements: 8.3 - 등록일순 정렬
+     */
+    Page<BookCoverDocument> browseLatest(Pageable pageable);
+
+    /**
      * 국가별 브라우징을 수행합니다.
      *
      * @param countryCode 국가 코드 (ISO 3166-1)
