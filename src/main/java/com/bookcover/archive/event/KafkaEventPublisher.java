@@ -1,6 +1,7 @@
 package com.bookcover.archive.event;
 
 import com.bookcover.archive.config.KafkaConfig;
+import com.bookcover.archive.repository.ContentOutboxEventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -26,20 +27,24 @@ public class KafkaEventPublisher implements EventPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final ContentOutboxEventRepository outboxRepository;
 
-    public KafkaEventPublisher(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
+    public KafkaEventPublisher(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper,
+                               ContentOutboxEventRepository outboxRepository) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.outboxRepository = outboxRepository;
     }
 
     @Override
     public void publishContentEvent(ContentEvent event) {
-        String key = event.entityId().toString();
         String payload = serialize(event);
 
-        if (payload != null) {
-            sendMessage(KafkaConfig.TOPIC_CONTENT_EVENTS, key, payload, "ContentEvent");
-        }
+        if (payload == null) throw new IllegalStateException("콘텐츠 이벤트 직렬화에 실패했습니다");
+        ContentOutboxEvent outbox = new ContentOutboxEvent();
+        outbox.setEntityId(event.entityId());
+        outbox.setPayload(payload);
+        outboxRepository.save(outbox);
     }
 
     @Override
