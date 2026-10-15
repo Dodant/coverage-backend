@@ -33,3 +33,6 @@ application-local.yml
 
 # Docker
 docker-compose.override.yml
+
+# register-book 스킬 실행 기록 (로컬 서버 데이터)
+.claude/skills/register-book/runs/

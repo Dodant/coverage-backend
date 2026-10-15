@@ -17,6 +17,7 @@ python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 
 ```
 
 - 헬스체크: `curl localhost:8080/api/actuator/health`, Swagger: `/api/swagger-ui.html`
+- 책 자동 등록: `/register-book "<제목>"` 스킬(`.claude/skills/register-book/`, 에이전트 계정 + 면제 환경변수 필요). 실행 기록은 `api.py serve`(읽기 전용 JSON)를 띄우고 백오피스(`../coverage-backoffice`)에서 본다
 - 린트/포맷: TODO — Checkstyle/Spotless 등 설정 없음
 - 사람용 실행 가이드(계정 생성, ADMIN 승격, API 개요, prod 환경변수)는 `README.md`
 - 도메인 모델·Kafka 흐름·검색 인덱싱·알려진 결함은 `ARCHITECTURE.md`
