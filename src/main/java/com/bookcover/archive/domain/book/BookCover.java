@@ -1,6 +1,7 @@
 package com.bookcover.archive.domain.book;
 
 import com.bookcover.archive.domain.media.Media;
+import com.bookcover.archive.domain.tag.DesignTag;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,6 +13,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -19,6 +22,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -119,6 +124,14 @@ public class BookCover {
     /** 역할별 크레딧 (디자인·일러스트·사진 등) */
     @OneToMany(mappedBy = "cover", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CoverCredit> credits = new ArrayList<>();
+
+    /** Requirements: 20.1 - 표지에 부여된 디자인 태그. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "book_cover_tags", joinColumns = @JoinColumn(name = "cover_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private Set<DesignTag> tags = new LinkedHashSet<>();
+
+    public Set<DesignTag> getTags() { return tags; }
 
     public List<CoverCredit> getCredits() {
         return credits;

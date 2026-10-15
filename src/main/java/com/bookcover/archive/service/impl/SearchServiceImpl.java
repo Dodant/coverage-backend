@@ -356,6 +356,7 @@ public class SearchServiceImpl implements SearchService {
         }
 
         setCredits(doc, book);
+        setTags(doc, book);
 
         if (book.getFrontCover() != null) {
             doc.setThumbnailUrl(book.getFrontCover().getThumbnailUrl());
@@ -393,6 +394,7 @@ public class SearchServiceImpl implements SearchService {
         }
 
         setCredits(doc, book);
+        setTags(doc, book);
 
         if (book.getFrontCover() != null) {
             doc.setThumbnailUrl(book.getFrontCover().getThumbnailUrl());
@@ -410,6 +412,19 @@ public class SearchServiceImpl implements SearchService {
                 .forEach(c -> designers.putIfAbsent(c.getDesigner().getId().toString(), c.getDesigner().getName()));
         doc.setDesignerIds(new ArrayList<>(designers.keySet()));
         doc.setDesigners(new ArrayList<>(designers.values()));
+    }
+
+    /** Requirements: 20.1, 20.3 - 표지의 승인된 태그를 검색 문서에 모은다. */
+    private void setTags(BookCoverDocument doc, Media book) {
+        Map<String, String> tags = new LinkedHashMap<>();
+        Stream.concat(Stream.concat(book.getCovers().stream(), Stream.ofNullable(book.getFrontCover())),
+                        Stream.ofNullable(backCoverOf(book))).distinct()
+                .filter(cover -> !cover.isHidden())
+                .flatMap(cover -> cover.getTags().stream())
+                .filter(tag -> Boolean.TRUE.equals(tag.getApproved()))
+                .forEach(tag -> tags.putIfAbsent(tag.getId().toString(), tag.getName()));
+        doc.setTagIds(new ArrayList<>(tags.keySet()));
+        doc.setTags(new ArrayList<>(tags.values()));
     }
 
     private static BookCover backCoverOf(Media book) {

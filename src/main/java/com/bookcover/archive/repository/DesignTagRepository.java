@@ -5,6 +5,9 @@ import com.bookcover.archive.domain.tag.TagCategory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,6 +23,14 @@ import java.util.UUID;
  */
 @Repository
 public interface DesignTagRepository extends JpaRepository<DesignTag, UUID> {
+
+    @Modifying
+    @Query("UPDATE DesignTag t SET t.usageCount = t.usageCount + 1 WHERE t.id = :id")
+    int incrementUsage(@Param("id") UUID id);
+
+    @Modifying
+    @Query("UPDATE DesignTag t SET t.usageCount = t.usageCount - 1 WHERE t.id = :id AND t.usageCount > 0")
+    int decrementUsage(@Param("id") UUID id);
 
     /**
      * 이름으로 태그를 조회합니다.

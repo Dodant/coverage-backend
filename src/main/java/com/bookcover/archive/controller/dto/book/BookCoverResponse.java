@@ -5,6 +5,7 @@ import com.bookcover.archive.domain.book.CoverLayout;
 import com.bookcover.archive.domain.book.CoverType;
 import com.bookcover.archive.domain.book.CreditRole;
 import com.bookcover.archive.domain.book.ImageSource;
+import com.bookcover.archive.controller.dto.tag.TagResponse;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,7 +37,8 @@ public record BookCoverResponse(
     LocalDate usedFrom,
     String countryCode,
     String languageCode,
-    List<CreditResponse> credits
+    List<CreditResponse> credits,
+    List<TagResponse> tags
 ) {
     /** 표지 크레딧 (designerId는 /designers/{id} 프로필로 연결) */
     public record CreditResponse(UUID designerId, String name, CreditRole role) {}
@@ -69,7 +71,8 @@ public record BookCoverResponse(
             cover.getLanguageCode(),
             cover.getCredits().stream()
                 .map(c -> new CreditResponse(c.getDesigner().getId(), c.getDesigner().getName(), c.getRole()))
-                .toList()
+                .toList(),
+            cover.getTags().stream().filter(t -> Boolean.TRUE.equals(t.getApproved())).map(TagResponse::from).toList()
         );
     }
 }
