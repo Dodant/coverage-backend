@@ -1,5 +1,7 @@
 package com.bookcover.archive.validation;
 
+import com.bookcover.archive.config.security.SecurityUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -10,10 +12,14 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Validator for image files.
  * Validates resolution, file format, and file size.
+ *
+ * image.resolution-exempt-user-ids에 있는 사용자(서지 자동 등록 에이전트 계정)는 최소 해상도 검사를 건너뛴다.
+ * 공개 서지 API 표지는 대부분 500px 안팎이라 규칙을 지키면 등록할 수 없기 때문이다.
  *
  * Validates: Requirements 14.1, 14.4, 14.5
  */
@@ -31,6 +37,9 @@ public class ImageValidator {
     public static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "jpg", "jpeg", "png", "webp"
     );
+
+    @Value("${image.resolution-exempt-user-ids:}")
+    private Set<UUID> resolutionExemptUserIds = Set.of();
 
     /**
      * Validates an image file for all criteria.
@@ -60,7 +69,8 @@ public class ImageValidator {
         ImageDimensions dimensions = null;
         try {
             dimensions = getImageDimensions(file);
-            if (dimensions != null && !isValidResolution(dimensions.width(), dimensions.height())) {
+            if (dimensions != null && !isValidResolution(dimensions.width(), dimensions.height())
+                    && !isResolutionExempt()) {
                 errors.add(String.format(
                         "Image resolution too low. Minimum required: %dx%d pixels. Provided: %dx%d pixels",
                         MIN_WIDTH, MIN_HEIGHT, dimensions.width(), dimensions.height()
@@ -122,6 +132,10 @@ public class ImageValidator {
      */
     public boolean isValidResolution(int width, int height) {
         return width >= MIN_WIDTH && height >= MIN_HEIGHT;
+    }
+
+    private boolean isResolutionExempt() {
+        return SecurityUtils.getCurrentUserId().map(resolutionExemptUserIds::contains).orElse(false);
     }
 
     /**

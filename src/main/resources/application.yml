@@ -46,6 +46,8 @@ image:
   thumbnail:
     width: 300
     height: 450
+  # 최소 해상도 검사를 건너뛸 사용자 ID(쉼표 구분). 공개 API 표지(~500px)를 올리는 에이전트 전용 계정용
+  resolution-exempt-user-ids: ${IMAGE_RESOLUTION_EXEMPT_USER_IDS:}
 
 # Rate Limiting Configuration
 rate-limit:
@@ -64,6 +66,8 @@ rate-limit:
   takedown:
     limit: 5
     window-seconds: 3600
+  # 한도를 적용하지 않을 사용자 ID(쉼표 구분). 서지 자동 등록 에이전트 전용 계정용
+  exempt-user-ids: ${RATE_LIMIT_EXEMPT_USER_IDS:}
 
 # Springdoc OpenAPI
 springdoc:
