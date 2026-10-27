@@ -3,6 +3,7 @@ package com.bookcover.archive.service;
 import com.bookcover.archive.domain.book.BookCover;
 import com.bookcover.archive.domain.book.OriginalBook;
 import com.bookcover.archive.domain.book.TranslatedBook;
+import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.media.Media;
 import com.bookcover.archive.service.dto.AddCoverRequest;
 import com.bookcover.archive.service.dto.CreateOriginalBookRequest;
@@ -45,6 +46,7 @@ public interface BookService {
     List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId);
     Page<OriginalBook> getBooksByAuthor(UUID authorId, Pageable pageable);
     Page<OriginalBook> getBooksByPublisher(UUID publisherId, Pageable pageable);
+    Page<OriginalBook> getBooksByStatus(ContentStatus status, Pageable pageable);
 
     // 중복 검사
     List<Media> findDuplicatesByIsbn(String isbn);

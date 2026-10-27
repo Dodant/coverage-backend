@@ -1,6 +1,7 @@
 package com.bookcover.archive.service.dto;
 
 import com.bookcover.archive.domain.book.ImageSource;
+import com.bookcover.archive.domain.common.ContentStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -62,7 +63,10 @@ public record CreateOriginalBookRequest(
     @Valid
     BookCoverInfo backCover,
 
-    UUID createdById
+    UUID createdById,
+
+    /** DRAFT면 관리자가 검토해 공개할 때까지 사용자에게 안 보인다(백오피스 '퍼블리시'). 그 외·null은 PUBLISHED */
+    ContentStatus status
 ) {
     public CreateOriginalBookRequest {
         if (originalTitle == null || originalTitle.isBlank()) {

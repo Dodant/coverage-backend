@@ -139,7 +139,7 @@ public class BookServiceImpl implements BookService {
         book.setGenre(request.genre());
         book.setIsbn(request.isbn() != null ? isbnValidator.normalizeIsbn(request.isbn()) : null);
         book.setEdition(request.edition());
-        book.setStatus(ContentStatus.PUBLISHED);
+        book.setStatus(request.status() == ContentStatus.DRAFT ? ContentStatus.DRAFT : ContentStatus.PUBLISHED);
 
         // 작가 연결
         book.setAuthor(resolveAuthor(request.authorId(), request.authorName()));
@@ -445,6 +445,12 @@ public class BookServiceImpl implements BookService {
     @Transactional(readOnly = true)
     public Page<OriginalBook> getBooksByPublisher(UUID publisherId, Pageable pageable) {
         return originalBookRepository.findByPublisherId(publisherId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OriginalBook> getBooksByStatus(ContentStatus status, Pageable pageable) {
+        return originalBookRepository.findByStatus(status, pageable);
     }
 
     @Override

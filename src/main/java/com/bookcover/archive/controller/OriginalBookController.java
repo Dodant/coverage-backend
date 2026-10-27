@@ -91,7 +91,8 @@ public class OriginalBookController {
                 request.workId(),
                 request.frontCover(),
                 request.backCover(),
-                userDetails.getId()
+                userDetails.getId(),
+                request.status()
         );
         OriginalBook book = bookService.createOriginalBook(requestWithUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(OriginalBookResponse.from(book));

@@ -76,9 +76,10 @@ class BookServiceImplTest {
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
                         null, null, null, null, null, null, null),
-                null, null));
+                null, null, null));
 
         assertThat(book.getAuthor()).isSameAs(existing);
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.PUBLISHED);
         verify(authorRepository, never()).save(any());
     }
 
@@ -137,10 +138,11 @@ class BookServiceImplTest {
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
                         null, null, null, null, null, null, null),
-                null, null);
+                null, null, ContentStatus.DRAFT);
 
         assertThat(request.originalTitle()).isEqualTo("채식주의자");
         OriginalBook book = service.createOriginalBook(request);
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.DRAFT);
         assertThat(book.getYear()).isNull();
         assertThat(book.getCountryCode()).isNull();
         assertThat(book.getGenre()).isNull();
