@@ -112,3 +112,8 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 
 운영 배포 전에 `scripts/migrations/2026-10-27_cover_variant_metadata.sql`을 적용해야 한다. 기존 레코드의 새 필드는 UNKNOWN으로 응답한다. 디자인 묶음(`similarGroupId`)과 이미지 URL 동일성, 도서별 표지 소속은 서로 별도 관계다.
 새 목록의 DB 필터·페이지 처리·표지 소유권·크레딧 교체는 `CatalogServiceImplTest`에서 H2로 검증한다(`./gradlew test --tests '*CatalogServiceImplTest'`). PostgreSQL 및 외부 서비스 연결을 요구하지 않는다.
+
+### 도서 관계 수정
+
+- `POST /api/admin/catalog/{id}/relationship-preview`: `{action, targetId}`로 영향을 받는 도서, 현재 originalId/workId/targetWorkId를 확인한다. action은 MOVE_TRANSLATION/JOIN_WORK/LEAVE_WORK. 분리 시 targetId는 null.
+- `PUT /api/admin/catalog/{id}/relationship`: 같은 작업에 검토 결과의 `expectedOriginalId`, `expectedWorkId`, `expectedTargetWorkId`를 함께 보낸다. 도서를 정해진 순서로 잠그고 오래된 검토 상태·삭제 도서·공개 번역서의 비공개 원서 연결을 거절한다. 적용 시 감사 로그와 검색 갱신 이벤트를 기록한다.

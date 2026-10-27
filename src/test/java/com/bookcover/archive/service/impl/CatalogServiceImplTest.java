@@ -156,4 +156,51 @@ class CatalogServiceImplTest {
         service.updateCover(o.getId(), coverId, new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, List.of()), UUID.randomUUID()); flush();
         assertThat(service.list(filter(Issue.MISSING_CREDIT), 0, 30, "created").getTotalElements()).isEqualTo(1);
     }
+    private com.bookcover.archive.service.RelationshipService relationships() {
+        return new RelationshipServiceImpl(em, audit, events);
+    }
+    private com.bookcover.archive.service.dto.RelationshipRequest relation(com.bookcover.archive.service.dto.RelationshipRequest.Action action, UUID target,
+            com.bookcover.archive.service.RelationshipService.Preview preview) {
+        return new com.bookcover.archive.service.dto.RelationshipRequest(action, target,
+                preview == null ? null : preview.originalId(), preview == null ? null : preview.workId(), preview == null ? null : preview.targetWorkId());
+    }
+    @Test void translationMovePreservesCoversAndRequiresFreshPreview() {
+        var first = original("원서1", ContentStatus.PUBLISHED); first.setIsbn(null); em.flush();
+        var second = original("원서2", ContentStatus.PUBLISHED); second.setIsbn(null);
+        var translated = translation(first); UUID cover = translated.getFrontCover().getId(); flush();
+        var service = relationships(); var action = com.bookcover.archive.service.dto.RelationshipRequest.Action.MOVE_TRANSLATION;
+        var preview = service.preview(translated.getId(), relation(action, second.getId(), null));
+        assertThat(preview.originalId()).isEqualTo(first.getId());
+        assertThatThrownBy(() -> service.apply(translated.getId(), relation(action, second.getId(), null), UUID.randomUUID())).isInstanceOf(ValidationException.class);
+        service.apply(translated.getId(), relation(action, second.getId(), preview), UUID.randomUUID()); flush();
+        var changed = em.find(TranslatedBook.class, translated.getId());
+        assertThat(changed.getOriginalBook().getId()).isEqualTo(second.getId());
+        assertThat(changed.getFrontCover().getId()).isEqualTo(cover);
+        assertThat(em.find(OriginalBook.class, first.getId()).getTranslations()).isEmpty();
+        assertThat(em.find(OriginalBook.class, second.getId()).getTranslations()).hasSize(1);
+    }
+    @Test void editionsCanJoinAndLeaveAWorkWithoutMovingTranslations() {
+        var first = original("초판", ContentStatus.PUBLISHED); first.setIsbn(null); em.flush();
+        var second = original("개정판", ContentStatus.PUBLISHED); second.setIsbn(null);
+        var translated = translation(first); flush();
+        var service = relationships(); var join = com.bookcover.archive.service.dto.RelationshipRequest.Action.JOIN_WORK;
+        var preview = service.preview(first.getId(), relation(join, second.getId(), null));
+        assertThat(preview.affectedBooks()).hasSize(3);
+        service.apply(first.getId(), relation(join, second.getId(), preview), UUID.randomUUID()); flush();
+        assertThat(em.find(OriginalBook.class, first.getId()).getWork().getId()).isEqualTo(em.find(OriginalBook.class, second.getId()).getWork().getId());
+        var leave = com.bookcover.archive.service.dto.RelationshipRequest.Action.LEAVE_WORK;
+        var leavePreview = service.preview(first.getId(), relation(leave, null, null));
+        service.apply(first.getId(), relation(leave, null, leavePreview), UUID.randomUUID()); flush();
+        assertThat(em.find(OriginalBook.class, first.getId()).getWork()).isNull();
+        assertThat(em.find(TranslatedBook.class, translated.getId()).getOriginalBook().getId()).isEqualTo(first.getId());
+    }
+    @Test void publicTranslationCannotMoveToUnpublishedOriginalAndMembersCannotPreview() {
+        var first = original("공개 원서", ContentStatus.PUBLISHED); first.setIsbn(null); em.flush();
+        var second = original("초안 원서", ContentStatus.DRAFT); second.setIsbn(null);
+        var translated = translation(first); translated.setStatus(ContentStatus.PUBLISHED); flush();
+        var request = relation(com.bookcover.archive.service.dto.RelationshipRequest.Action.MOVE_TRANSLATION, second.getId(), null);
+        assertThatThrownBy(() -> relationships().preview(translated.getId(), request)).isInstanceOf(ValidationException.class);
+        SecurityContextHolder.clearContext();
+        assertThatThrownBy(() -> relationships().preview(translated.getId(), request)).isInstanceOf(ValidationException.class);
+    }
 }
