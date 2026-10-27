@@ -5,10 +5,12 @@ import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.contributor.Author;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.user.UserRole;
 import com.bookcover.archive.event.ContentEvent;
 import com.bookcover.archive.event.ContentEventType;
 import com.bookcover.archive.event.EventPublisher;
 import com.bookcover.archive.exception.DuplicateIsbnException;
+import com.bookcover.archive.exception.ValidationException;
 import com.bookcover.archive.repository.AuthorRepository;
 import com.bookcover.archive.repository.BookCoverRepository;
 import com.bookcover.archive.repository.BookSearchRepository;
@@ -52,13 +54,14 @@ class BookServiceImplTest {
     private final IsbnValidator isbnValidator = new IsbnValidator();
     private final ContributionService contributionService = mock(ContributionService.class);
     private final EventPublisher eventPublisher = mock(EventPublisher.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
     private BookServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new BookServiceImpl(originalBookRepository, translatedBookRepository,
                 authorRepository, mock(PublisherRepository.class), mock(DesignerRepository.class),
-                mock(TranslatorRepository.class), mock(WorkRepository.class), mock(UserRepository.class),
+                mock(TranslatorRepository.class), mock(WorkRepository.class), userRepository,
                 mock(BookSearchRepository.class), isbnValidator, contributionService,
                 eventPublisher, mock(BookCoverRepository.class), mock(SeriesRepository.class),
                 mock(AuditService.class), mock(com.bookcover.archive.service.ImageService.class));
@@ -76,9 +79,10 @@ class BookServiceImplTest {
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
                         null, null, null, null, null, null, null),
-                null, null));
+                null, null, null));
 
         assertThat(book.getAuthor()).isSameAs(existing);
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.PUBLISHED);
         verify(authorRepository, never()).save(any());
     }
 
@@ -132,17 +136,65 @@ class BookServiceImplTest {
 
     @Test
     void originalTitleDefaultsToTitleAndYearCountryGenreAreOptional() {
-        CreateOriginalBookRequest request = new CreateOriginalBookRequest(
+        CreateOriginalBookRequest request = create(null, null);
+
+        assertThat(request.originalTitle()).isEqualTo("채식주의자");
+        OriginalBook book = service.createOriginalBook(request);
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.PUBLISHED);
+        assertThat(book.getYear()).isNull();
+        assertThat(book.getCountryCode()).isNull();
+        assertThat(book.getGenre()).isNull();
+    }
+
+    @Test
+    void 관리자는_DRAFT로_등록하고_기여와_색인은_공개_때까지_미룬다() {
+        UUID adminId = user(UserRole.ADMIN);
+
+        OriginalBook book = service.createOriginalBook(create(adminId, ContentStatus.DRAFT));
+
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.DRAFT);
+        verifyNoInteractions(contributionService, eventPublisher);
+    }
+
+    @Test
+    void 일반_회원의_DRAFT와_그_밖의_비공개_상태는_거부한다() {
+        UUID memberId = user(UserRole.MEMBER);
+        UUID adminId = user(UserRole.ADMIN);
+
+        assertThatThrownBy(() -> service.createOriginalBook(create(memberId, ContentStatus.DRAFT)))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> service.createOriginalBook(create(adminId, ContentStatus.HIDDEN)))
+                .isInstanceOf(ValidationException.class);
+        verifyNoInteractions(contributionService, eventPublisher);
+    }
+
+    @Test
+    void 공개_조회는_PUBLISHED만_돌려준다() {
+        for (ContentStatus status : ContentStatus.values()) {
+            OriginalBook book = new OriginalBook();
+            book.setId(UUID.randomUUID());
+            book.setStatus(status);
+            when(originalBookRepository.findById(book.getId())).thenReturn(Optional.of(book));
+
+            assertThat(service.getOriginalBook(book.getId()).isPresent())
+                    .as(status.name()).isEqualTo(status == ContentStatus.PUBLISHED);
+        }
+    }
+
+    private UUID user(UserRole role) {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setRole(role);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        return user.getId();
+    }
+
+    private static CreateOriginalBookRequest create(UUID createdById, ContentStatus status) {
+        return new CreateOriginalBookRequest(
                 "채식주의자", null, null, "ko", null, null, null,
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
                         null, null, null, null, null, null, null),
-                null, null);
-
-        assertThat(request.originalTitle()).isEqualTo("채식주의자");
-        OriginalBook book = service.createOriginalBook(request);
-        assertThat(book.getYear()).isNull();
-        assertThat(book.getCountryCode()).isNull();
-        assertThat(book.getGenre()).isNull();
+                null, createdById, status);
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -139,6 +140,20 @@ public class GlobalExceptionHandler {
             ErrorCode.MISSING_REQUIRED_FIELD,
             "필수 파라미터가 누락되었습니다: " + ex.getParameterName(),
             details
+        );
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * HttpMessageNotReadableException 처리 - 요청 본문을 읽을 수 없음 (JSON 문법, enum 값 오타 등). 500이 아니라 400
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        ErrorResponse response = new ErrorResponse(
+            ErrorCode.VALIDATION_ERROR,
+            "요청 본문을 읽을 수 없습니다",
+            Map.of("reason", cause.getMessage() != null ? cause.getMessage() : ex.getMessage())
         );
         return ResponseEntity.badRequest().body(response);
     }

@@ -156,6 +156,11 @@ public abstract class Media {
         this.year = year;
     }
 
+    /** 비회원에게 보이는 콘텐츠인지. 공개 조회 경로는 모두 이 판정을 쓴다(DRAFT·HIDDEN·DELETED 제외) */
+    public boolean isPublic() {
+        return status == ContentStatus.PUBLISHED;
+    }
+
     public ContentStatus getStatus() {
         return status;
     }

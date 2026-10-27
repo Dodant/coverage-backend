@@ -1,5 +1,6 @@
 package com.bookcover.archive.repository;
 
+import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.media.Media;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -32,15 +33,18 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
         List<Media> results = new ArrayList<>();
 
         // 원서에서 ISBN 검색
-        String originalQuery = "SELECT o FROM OriginalBook o WHERE o.isbn = :isbn";
+        // 공개 책만: 비공개(DRAFT 등) 책의 id·제목이 중복 검사로 새면 안 된다
+        String originalQuery = "SELECT o FROM OriginalBook o WHERE o.isbn = :isbn AND o.status = :published";
         TypedQuery<Media> originalBookQuery = entityManager.createQuery(originalQuery, Media.class);
         originalBookQuery.setParameter("isbn", isbn);
+        originalBookQuery.setParameter("published", ContentStatus.PUBLISHED);
         results.addAll(originalBookQuery.getResultList());
 
         // 번역서에서 ISBN 검색
-        String translatedQuery = "SELECT t FROM TranslatedBook t WHERE t.isbn = :isbn";
+        String translatedQuery = "SELECT t FROM TranslatedBook t WHERE t.isbn = :isbn AND t.status = :published";
         TypedQuery<Media> translatedBookQuery = entityManager.createQuery(translatedQuery, Media.class);
         translatedBookQuery.setParameter("isbn", isbn);
+        translatedBookQuery.setParameter("published", ContentStatus.PUBLISHED);
         results.addAll(translatedBookQuery.getResultList());
 
         return results;
@@ -59,8 +63,10 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
                OR LOWER(o.originalTitle) LIKE LOWER(CONCAT('%', :title, '%')))
               AND (a.name LIKE CONCAT('%', :authorName, '%') OR :authorName IS NULL OR :authorName = '')
               AND (:yearStart IS NULL OR o.year IS NULL OR o.year BETWEEN :yearStart AND :yearEnd)
+              AND o.status = :published
             """;
         TypedQuery<Media> originalBookQuery = entityManager.createQuery(originalQuery, Media.class);
+        originalBookQuery.setParameter("published", ContentStatus.PUBLISHED);
         originalBookQuery.setParameter("title", title);
         originalBookQuery.setParameter("authorName", authorName);
         originalBookQuery.setParameter("yearStart", year != null ? year - 2 : null);
@@ -75,8 +81,10 @@ public class BookSearchRepositoryImpl implements BookSearchRepository {
             WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :title, '%'))
               AND (a.name LIKE CONCAT('%', :authorName, '%') OR :authorName IS NULL OR :authorName = '')
               AND (:yearStart IS NULL OR t.year IS NULL OR t.year BETWEEN :yearStart AND :yearEnd)
+              AND t.status = :published
             """;
         TypedQuery<Media> translatedBookQuery = entityManager.createQuery(translatedQuery, Media.class);
+        translatedBookQuery.setParameter("published", ContentStatus.PUBLISHED);
         translatedBookQuery.setParameter("title", title);
         translatedBookQuery.setParameter("authorName", authorName);
         translatedBookQuery.setParameter("yearStart", year != null ? year - 2 : null);

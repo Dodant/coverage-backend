@@ -72,28 +72,7 @@ public class OriginalBookController {
     public ResponseEntity<OriginalBookResponse> createOriginalBook(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateOriginalBookRequest request) {
-        CreateOriginalBookRequest requestWithUser = new CreateOriginalBookRequest(
-                request.title(),
-                request.originalTitle(),
-                request.countryCode(),
-                request.languageCode(),
-                request.year(),
-                request.genre(),
-                request.isbn(),
-                request.authorId(),
-                request.authorName(),
-                request.publisherId(),
-                request.publisherName(),
-                request.edition(),
-                request.seriesId(),
-                request.seriesName(),
-                request.seriesNumber(),
-                request.workId(),
-                request.frontCover(),
-                request.backCover(),
-                userDetails.getId()
-        );
-        OriginalBook book = bookService.createOriginalBook(requestWithUser);
+        OriginalBook book = bookService.createOriginalBook(request.withCreatedBy(userDetails.getId()));
         return ResponseEntity.status(HttpStatus.CREATED).body(OriginalBookResponse.from(book));
     }
 
