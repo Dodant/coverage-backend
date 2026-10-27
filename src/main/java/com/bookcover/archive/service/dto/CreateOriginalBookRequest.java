@@ -74,6 +74,13 @@ public record CreateOriginalBookRequest(
         }
     }
 
+    /** 로그인 사용자를 등록자로 넣은 사본(컨트롤러용) */
+    public CreateOriginalBookRequest withCreatedBy(UUID userId) {
+        return new CreateOriginalBookRequest(title, originalTitle, countryCode, languageCode, year, genre, isbn,
+                authorId, authorName, publisherId, publisherName, edition, seriesId, seriesName, seriesNumber, workId,
+                frontCover, backCover, userId, status);
+    }
+
     /**
      * 북커버 정보 DTO.
      */

@@ -55,8 +55,8 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
     @Query(value = "SELECT ob FROM OriginalBook ob " +
         "LEFT JOIN FETCH ob.author " +
         "LEFT JOIN FETCH ob.publisher " +
-        "WHERE ob.author.id = :authorId",
-        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.author.id = :authorId")
+        "WHERE ob.author.id = :authorId AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED",
+        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.author.id = :authorId AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED")
     Page<OriginalBook> findByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
 
     /**
@@ -69,8 +69,8 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
     @Query(value = "SELECT ob FROM OriginalBook ob " +
         "LEFT JOIN FETCH ob.author " +
         "LEFT JOIN FETCH ob.publisher " +
-        "WHERE ob.publisher.id = :publisherId",
-        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.publisher.id = :publisherId")
+        "WHERE ob.publisher.id = :publisherId AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED",
+        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.publisher.id = :publisherId AND ob.status = com.bookcover.archive.domain.common.ContentStatus.PUBLISHED")
     Page<OriginalBook> findByPublisherId(@Param("publisherId") UUID publisherId, Pageable pageable);
 
     /** 뒷면 표지로 원서를 찾습니다 (뒷면 표지는 book_id가 없어 소유 책을 역으로 찾는다) */
@@ -118,7 +118,14 @@ public interface OriginalBookRepository extends JpaRepository<OriginalBook, UUID
      * @param pageable 페이징 정보
      * @return 원서 페이지
      */
-    Page<OriginalBook> findByStatus(ContentStatus status, Pageable pageable);
+    @Query(value = "SELECT ob FROM OriginalBook ob " +
+        "LEFT JOIN FETCH ob.author " +
+        "LEFT JOIN FETCH ob.publisher " +
+        "LEFT JOIN FETCH ob.series " +
+        "LEFT JOIN FETCH ob.frontCover " +
+        "WHERE ob.status = :status",
+        countQuery = "SELECT count(ob) FROM OriginalBook ob WHERE ob.status = :status")
+    Page<OriginalBook> findByStatus(@Param("status") ContentStatus status, Pageable pageable);
 
     /**
      * 등록자 ID로 원서 목록을 조회합니다.

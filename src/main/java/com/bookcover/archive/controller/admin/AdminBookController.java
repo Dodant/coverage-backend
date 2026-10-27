@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 관리자 원서 목록 API. 공개 목록에 안 나오는 상태(DRAFT 등)의 책을 백오피스 '퍼블리시'에서 검토한다.
  * 공개 전환은 POST /admin/moderation/content/restore(PUBLISHED로 바꾸고 재색인)를 쓴다.
+ *
+ * Requirements: 15.1 - 등록 즉시 공개의 예외로, 관리자가 DRAFT로 넣고 검토 뒤 공개한다
  */
 @RestController
 @RequestMapping("/admin/books")

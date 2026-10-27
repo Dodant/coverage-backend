@@ -16,6 +16,7 @@ import com.bookcover.archive.domain.contributor.Publisher;
 import com.bookcover.archive.domain.contributor.Translator;
 import com.bookcover.archive.domain.media.Media;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.user.UserRole;
 import com.bookcover.archive.event.ContentEvent;
 import com.bookcover.archive.event.ContentEventType;
 import com.bookcover.archive.event.EventPublisher;
@@ -139,7 +140,7 @@ public class BookServiceImpl implements BookService {
         book.setGenre(request.genre());
         book.setIsbn(request.isbn() != null ? isbnValidator.normalizeIsbn(request.isbn()) : null);
         book.setEdition(request.edition());
-        book.setStatus(request.status() == ContentStatus.DRAFT ? ContentStatus.DRAFT : ContentStatus.PUBLISHED);
+        book.setStatus(initialStatus(request.status(), request.createdById()));
 
         // 작가 연결
         book.setAuthor(resolveAuthor(request.authorId(), request.authorName()));
@@ -180,19 +181,40 @@ public class BookServiceImpl implements BookService {
 
         OriginalBook savedBook = originalBookRepository.save(book);
 
-        // 기여 횟수 증가 및 칭호 업데이트
-        if (request.createdById() != null) {
-            contributionService.incrementContribution(request.createdById());
+        // DRAFT는 공개(restoreContent → ORIGINAL_BOOK_UPDATED)될 때 색인되므로 지금은 기여·색인 이벤트를 내지 않는다
+        if (savedBook.getStatus() == ContentStatus.PUBLISHED) {
+            // 기여 횟수 증가 및 칭호 업데이트
+            if (request.createdById() != null) {
+                contributionService.incrementContribution(request.createdById());
+            }
+
+            // 콘텐츠 생성 이벤트 발행
+            eventPublisher.publishContentEvent(new ContentEvent(
+                    ContentEventType.ORIGINAL_BOOK_CREATED,
+                    savedBook.getId(),
+                    request.createdById()
+            ));
         }
 
-        // 콘텐츠 생성 이벤트 발행
-        eventPublisher.publishContentEvent(new ContentEvent(
-                ContentEventType.ORIGINAL_BOOK_CREATED,
-                savedBook.getId(),
-                request.createdById()
-        ));
-
         return savedBook;
+    }
+
+    /**
+     * 등록 시 상태. null·PUBLISHED는 공개, DRAFT는 관리자만(백오피스 퍼블리시가 검토 후 공개), 그 외는 거부.
+     */
+    private ContentStatus initialStatus(ContentStatus requested, UUID createdById) {
+        if (requested == null || requested == ContentStatus.PUBLISHED) {
+            return ContentStatus.PUBLISHED;
+        }
+        if (requested != ContentStatus.DRAFT) {
+            throw new ValidationException("status must be DRAFT or PUBLISHED", Map.of("status", requested.name()));
+        }
+        boolean admin = createdById != null && userRepository.findById(createdById)
+                .map(user -> user.getRole() == UserRole.ADMIN).orElse(false);
+        if (!admin) {
+            throw new ValidationException("Only administrators can create DRAFT books", Map.of("status", requested.name()));
+        }
+        return ContentStatus.DRAFT;
     }
 
 
@@ -264,9 +286,8 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public Optional<OriginalBook> getOriginalBook(UUID id) {
-        // 문제 16 해결: 삭제된 콘텐츠는 조회하지 않음
-        return originalBookRepository.findById(id)
-                .filter(book -> book.getStatus() != ContentStatus.DELETED);
+        // 공개 조회: DRAFT·HIDDEN·DELETED는 없는 것으로 본다
+        return originalBookRepository.findById(id).filter(Media::isPublic);
     }
 
     @Override
@@ -282,9 +303,9 @@ public class BookServiceImpl implements BookService {
         OriginalBook originalBook = originalBookRepository.findById(originalBookId)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", originalBookId));
 
-        // 문제 17 해결: 삭제된 원서에는 번역서를 연결할 수 없음
-        if (originalBook.getStatus() == ContentStatus.DELETED) {
-            throw new ValidationException("Cannot create translation for deleted original book",
+        // 비공개 원서(삭제·DRAFT·숨김)에 번역서를 붙이면 번역서를 통해 원서가 노출된다
+        if (!originalBook.isPublic()) {
+            throw new ValidationException("Cannot create translation for an unpublished original book",
                     Map.of("originalBookId", originalBookId, "status", originalBook.getStatus().name()));
         }
 
@@ -417,9 +438,7 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public Optional<TranslatedBook> getTranslatedBook(UUID id) {
-        // 문제 16 해결: 삭제된 콘텐츠는 조회하지 않음
-        return translatedBookRepository.findById(id)
-                .filter(book -> book.getStatus() != ContentStatus.DELETED);
+        return translatedBookRepository.findById(id).filter(Media::isPublic);
     }
 
     @Override
@@ -432,7 +451,7 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId) {
-        return translatedBookRepository.findByOriginalBookId(originalBookId);
+        return translatedBookRepository.findByOriginalBookId(originalBookId).stream().filter(Media::isPublic).toList();
     }
 
     @Override
