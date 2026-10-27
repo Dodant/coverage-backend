@@ -122,6 +122,19 @@ public class BookCover {
     /** 이 표지가 쓰이기 시작한 날짜 */
     private LocalDate usedFrom;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private CoverVariantType variantType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private RibbonStatus ribbonStatus;
+
+    public CoverVariantType getVariantType() { return variantType == null ? CoverVariantType.UNKNOWN : variantType; }
+    public void setVariantType(CoverVariantType variantType) { this.variantType = variantType; }
+    public RibbonStatus getRibbonStatus() { return ribbonStatus == null ? RibbonStatus.UNKNOWN : ribbonStatus; }
+    public void setRibbonStatus(RibbonStatus ribbonStatus) { this.ribbonStatus = ribbonStatus; }
+
     /** 표지가 쓰인 나라 (ISO 3166-1). null이면 책의 나라를 따른다 */
     @Column(length = 2)
     private String countryCode;

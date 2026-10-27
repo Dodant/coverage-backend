@@ -97,3 +97,18 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 | `LazyInitializationException` on read APIs | Check whether `spring.jpa.open-in-view` was turned off. Controllers map entities to DTOs, so it must stay on. |
 | Elasticsearch index setup fails on startup | The nori plugin isn't installed yet. Run `docker compose ps` and wait until ES is healthy. |
 | Rate limits block local testing | `docker exec bookcover-redis sh -c "redis-cli --scan --pattern 'rate_limit:*' \| xargs -r redis-cli del"` |
+
+### 백오피스 도서·표지 버전 관리
+
+관리자 전용 `/api/admin/catalog`:
+- `GET /`: `query`(제목/저자/ISBN), `kind`(ORIGINAL/TRANSLATED), `status`, `language`, `publisher`, `hasCover`, `issue`, `needsAttention`, `page`, `size`(최대 100), `sort`(created/updated/title). 상태를 생략하면 원서·번역서의 모든 상태를 조회한다. 기존 `/admin/books`의 초안 원서 계약은 유지된다.
+- `GET /{id}`: 비공개 상태를 포함한 도서 상세·연결 도서·보완 항목. `GET /{id}/editions`는 원서 ID를 받아 원서와 번역서 전체 상세 목록을 반환한다.
+- `PUT /{bookId}/covers/{coverId}`: 표지의 label, printingFrom, usedFrom, variantType, ribbonStatus, sourceName, sourceUrl 전체 교체. 선택 필드 null/빈 값은 비우기이며, credits는 null이면 유지·목록이면 역할별 크레딧 교체다. 소속 도서·관리자 권한을 검증하고 도서 변경 이력에 기록한다. 삭제된 도서는 수정하지 않는다.
+
+`variantType`: UNKNOWN/INITIAL/RECOVER/SPECIAL/PRINTING/IMAGE_REPLACEMENT.
+`ribbonStatus`: UNKNOWN/CLEAN/BANDED. 표지 변형 추가 API도 두 필드를 선택적으로 받는다.
+`issue`: MISSING_COVER/HIDDEN_COVER/LOW_RESOLUTION/UNKNOWN_RESOLUTION/MISSING_ISBN/MISSING_SOURCE/MISSING_CREDIT/MISSING_YEAR/MISSING_PUBLISHER/UNCLASSIFIED_VARIANT.
+해상도는 대표 표지의 800×1200 기준이며, 크기 미상·숨김을 저해상도로 오판하지 않는다. 보완은 검토 작업 표시이며 공개 여부를 바꾸지 않는다.
+
+운영 배포 전에 `scripts/migrations/2026-10-27_cover_variant_metadata.sql`을 적용해야 한다. 기존 레코드의 새 필드는 UNKNOWN으로 응답한다. 디자인 묶음(`similarGroupId`)과 이미지 URL 동일성, 도서별 표지 소속은 서로 별도 관계다.
+새 목록의 DB 필터·페이지 처리·표지 소유권·크레딧 교체는 `CatalogServiceImplTest`에서 H2로 검증한다(`./gradlew test --tests '*CatalogServiceImplTest'`). PostgreSQL 및 외부 서비스 연결을 요구하지 않는다.

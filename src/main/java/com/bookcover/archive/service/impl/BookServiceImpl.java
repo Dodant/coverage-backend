@@ -519,6 +519,8 @@ public class BookServiceImpl implements BookService {
         cover.setLabel(request.label());
         cover.setPrintingFrom(request.printingFrom());
         cover.setUsedFrom(request.usedFrom());
+        cover.setVariantType(request.variantType());
+        cover.setRibbonStatus(request.ribbonStatus());
         if (request.countryCode() != null && !request.countryCode().isBlank()) {
             cover.setCountryCode(request.countryCode().trim().toUpperCase());
         }
@@ -805,6 +807,11 @@ public class BookServiceImpl implements BookService {
         s.put("thumbnailUrl", cover.getThumbnailUrl());
         s.put("sourceUrl", cover.getSourceUrl());
         s.put("sourceName", cover.getSourceName());
+        s.put("label", cover.getLabel());
+        s.put("printingFrom", cover.getPrintingFrom());
+        s.put("usedFrom", cover.getUsedFrom() == null ? null : cover.getUsedFrom().toString());
+        s.put("variantType", cover.getVariantType());
+        s.put("ribbonStatus", cover.getRibbonStatus());
         s.put("credits", cover.getCredits().stream()
                 .map(c -> {
                     Map<String, Object> m = new LinkedHashMap<>();

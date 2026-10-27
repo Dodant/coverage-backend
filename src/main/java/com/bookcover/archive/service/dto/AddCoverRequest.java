@@ -53,5 +53,8 @@ public record AddCoverRequest(
     String languageCode,
 
     /** 역할별 크레딧 */
-    List<@Valid CreditInfo> credits
+    List<@Valid CreditInfo> credits,
+
+    com.bookcover.archive.domain.book.CoverVariantType variantType,
+    com.bookcover.archive.domain.book.RibbonStatus ribbonStatus
 ) {}
