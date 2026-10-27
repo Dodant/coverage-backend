@@ -29,6 +29,9 @@ public interface ImageService {
     /** 삭제 승인된 이미지를 차단 목록에 넣고 관리 중인 원본·썸네일을 제거한다. */
     void blockImage(String imageUrl, String thumbnailUrl);
 
+    /** 관리 중인 저장 파일의 비교 해시를 계산한다. 이미 계산된 경우 false. */
+    boolean indexFingerprint(String imageUrl);
+
     /**
      * 이미지 파일을 검증합니다.
      *

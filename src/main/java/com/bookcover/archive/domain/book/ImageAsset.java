@@ -34,6 +34,18 @@ public class ImageAsset {
     @Column(length = 64)
     private String sha256;
 
+    /** 저장 파일 자체의 SHA-256. 기존 sha256(재업로드 차단용 픽셀 해시)과 별도다. */
+    @Column(length = 64)
+    private String fileSha256;
+
+    @Column(length = 16)
+    private String perceptualHash;
+
+    public String getFileSha256() { return fileSha256; }
+    public void setFileSha256(String value) { fileSha256 = value; }
+    public String getPerceptualHash() { return perceptualHash; }
+    public void setPerceptualHash(String value) { perceptualHash = value; }
+
     @Enumerated(EnumType.STRING)
     private ImageType type;
 

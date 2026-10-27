@@ -203,4 +203,40 @@ class CatalogServiceImplTest {
         SecurityContextHolder.clearContext();
         assertThatThrownBy(() -> relationships().preview(translated.getId(), request)).isInstanceOf(ValidationException.class);
     }
+    @Test void imageComparisonSeparatesSameUrlsExactFilesAndUnconfirmedCandidates() {
+        var book = original("비교", ContentStatus.PUBLISHED);
+        var a = book.getFrontCover(); a.setImageUrl("https://stored/a.png"); a.setWidth(800); a.setHeight(1200);
+        var b = cover(); b.setImageUrl("https://stored/b.png"); b.setBook(book); book.getCovers().add(b);
+        var c = cover(); c.setImageUrl("https://stored/c.jpg"); c.setBook(book); book.getCovers().add(c);
+        for (var cover : List.of(a,b,c)) {
+            var asset = new ImageAsset(); asset.setImageUrl(cover.getImageUrl()); asset.setFileSha256(cover == c ? "different" : "same");
+            asset.setPerceptualHash("0000000000000000"); em.persist(asset);
+        }
+        flush(); var images = new ImageInspectionServiceImpl(em, mock(com.bookcover.archive.service.ImageService.class));
+        var matches = images.matches(book.getId(), "", 0);
+        assertThat(matches.totalMatches()).isEqualTo(3); assertThat(matches.indexedCovers()).isEqualTo(3);
+        assertThat(images.matches(book.getId(), "EXACT_FILE", 0).matches()).hasSize(1);
+        assertThat(images.matches(book.getId(), "SIMILAR", 0).matches()).hasSize(2);
+        em.find(BookCover.class, c.getId()).setHidden(true); flush();
+        assertThat(images.matches(book.getId(), "", 0).totalMatches()).isEqualTo(1);
+        SecurityContextHolder.clearContext();
+        assertThatThrownBy(() -> images.matches(null, "", 0)).isInstanceOf(ValidationException.class);
+    }
+
+    @Test void imageScanIsolatesFileFailuresAndReturnsTheAffectedBook() {
+        var book = original("해시 분석", ContentStatus.PUBLISHED);
+        book.getFrontCover().setImageUrl("https://stored/broken.png");
+        var second = cover(); second.setImageUrl("https://stored/ok.png"); second.setBook(book); book.getCovers().add(second); flush();
+        var reader = mock(com.bookcover.archive.service.ImageService.class);
+        when(reader.indexFingerprint("https://stored/broken.png")).thenThrow(new ValidationException("원본 없음", java.util.Map.of()));
+        when(reader.indexFingerprint("https://stored/ok.png")).thenReturn(true);
+        var images = new ImageInspectionServiceImpl(em, reader);
+        var result = images.scan(null, 10);
+        assertThat(result.examined()).isEqualTo(2); assertThat(result.indexed()).isEqualTo(1); assertThat(result.hasMore()).isFalse();
+        assertThat(result.failures()).hasSize(1);
+        assertThat(result.failures().getFirst().bookId()).isEqualTo(book.getId());
+        assertThat(result.failures().getFirst().message()).isEqualTo("원본 없음");
+        assertThat(images.scan(result.nextCursor(), 10).examined()).isZero();
+    }
+
 }
