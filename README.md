@@ -123,3 +123,5 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 새 업로드에는 자동으로 `file_sha256`, `perceptual_hash`를 기록한다. 구형 파일 분석으로 만든 기록은 원본 업로드 검증 기록으로 승격하지 않는다. 기존 `sha256`의 차단용 픽셀 해시 의미를 유지한다. 운영에서는 `scripts/migrations/2026-10-27_image_fingerprints.sql`을 먼저 적용한다. 비교는 등록된 표지의 모든 해시 쌍을 검사하므로 대규모 도입 시 후보 인덱스/백그라운드 잡으로 확장한다.
 
 관계 변경 회귀 테스트: `./gradlew test --tests '*RelationshipServiceConcurrencyTest'`. 두 개의 별도 트랜잭션으로 교차 번역서 이동과 동일 번역서의 경쟁 이동을 검증한다. 이전 원서를 포함한 전체 수정 대상을 같은 순서로 잠그고, 잠금 후 1차 캐시를 갱신해 검토 ID를 다시 검사한다. 작품 연결 변경의 번역서에는 검색 이벤트만 발행한다.
+
+업로드 검증과 해시 계산은 `ImageValidator.MAX_PIXELS`(4천만 픽셀)를 공유한다. 초과 이미지는 래스터 디코딩·해시 계산·S3 저장 전에 거절하며, 최소 해상도 면제 계정에도 최대 픽셀 제한은 적용된다. 허용된 파일은 기존처럼 본문 디코딩을 검증하고, 해시와 썸네일 인코딩이 완료된 뒤 S3에 기록한다. `ImageUploadLimitsTest`는 초과 PNG의 400 응답과 저장소 무호출을 검증한다.

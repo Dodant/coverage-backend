@@ -93,11 +93,13 @@ public class ImageServiceImpl implements ImageService {
 
             // Upload original image (converted to sRGB)
             byte[] originalBytes = imageToBytes(srgbImage, extension);
-            uploadToS3(originalKey, originalBytes, file.getContentType());
+            ImageFingerprint fingerprint = ImageFingerprint.of(originalBytes);
 
             // Generate and upload thumbnail
             BufferedImage thumbnail = generateThumbnail(srgbImage);
             byte[] thumbnailBytes = imageToBytes(thumbnail, extension);
+            // 검증·해시·인코딩이 모두 성공한 뒤 저장소에 기록한다.
+            uploadToS3(originalKey, originalBytes, file.getContentType());
             uploadToS3(thumbnailKey, thumbnailBytes, file.getContentType());
 
             String originalUrl = buildUrl(originalKey);
@@ -107,7 +109,6 @@ public class ImageServiceImpl implements ImageService {
             asset.setImageUrl(originalUrl);
             asset.setThumbnailUrl(thumbnailUrl);
             asset.setSha256(hash);
-            ImageFingerprint fingerprint = ImageFingerprint.of(originalBytes);
             asset.setFileSha256(fingerprint.fileSha256());
             asset.setPerceptualHash(fingerprint.perceptualHash());
             asset.setType(type);

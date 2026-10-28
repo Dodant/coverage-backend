@@ -56,7 +56,7 @@ public class CoverController {
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @RateLimited(action = RateLimitAction.UPLOAD)
-    @Operation(summary = "커버 이미지 업로드", description = "북커버 이미지를 업로드합니다. 최소 해상도 800x1200, 최대 10MB, JPEG/PNG/WebP 형식만 허용됩니다.")
+    @Operation(summary = "커버 이미지 업로드", description = "북커버 이미지를 업로드합니다. 최소 해상도 800x1200, 최대 10MB·4천만 픽셀, JPEG/PNG/WebP 형식만 허용됩니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "업로드 성공"),

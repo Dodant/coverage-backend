@@ -1,5 +1,7 @@
 package com.bookcover.archive.service.impl;
 
+import com.bookcover.archive.validation.ImageValidator;
+
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
@@ -21,7 +23,7 @@ public record ImageFingerprint(String fileSha256, String perceptualHash) {
             ImageReader reader = readers.next();
             try {
                 reader.setInput(input);
-                if ((long) reader.getWidth(0) * reader.getHeight(0) > 40_000_000L) throw new IOException("이미지 크기가 너무 큽니다.");
+                if (!ImageValidator.isWithinPixelLimit(reader.getWidth(0), reader.getHeight(0))) throw new IOException("이미지 크기가 너무 큽니다.");
                 image = reader.read(0);
             } finally { reader.dispose(); }
         }
