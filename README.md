@@ -121,3 +121,5 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 - `POST /api/admin/image-inspection/scan`: `{after: null, limit: 10}`부터 시작하고 결과의 nextCursor를 다음 요청의 after로 보낸다. hasMore=false면 끝이다. 파일별 독립 트랜잭션으로 해시를 기록하고 실패에는 coverId/bookId/message를 반환한다. 관리자 권한 필요. 숨김·삭제·차단 표지 제외. URL은 S3 관리 경로만 허용하며 파일 크기 10MB·이미지 4천만 픽셀 이하만 분석한다.
 
 새 업로드에는 자동으로 `file_sha256`, `perceptual_hash`를 기록한다. 구형 파일 분석으로 만든 기록은 원본 업로드 검증 기록으로 승격하지 않는다. 기존 `sha256`의 차단용 픽셀 해시 의미를 유지한다. 운영에서는 `scripts/migrations/2026-10-27_image_fingerprints.sql`을 먼저 적용한다. 비교는 등록된 표지의 모든 해시 쌍을 검사하므로 대규모 도입 시 후보 인덱스/백그라운드 잡으로 확장한다.
+
+관계 변경 회귀 테스트: `./gradlew test --tests '*RelationshipServiceConcurrencyTest'`. 두 개의 별도 트랜잭션으로 교차 번역서 이동과 동일 번역서의 경쟁 이동을 검증한다. 이전 원서를 포함한 전체 수정 대상을 같은 순서로 잠그고, 잠금 후 1차 캐시를 갱신해 검토 ID를 다시 검사한다. 작품 연결 변경의 번역서에는 검색 이벤트만 발행한다.

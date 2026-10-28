@@ -55,15 +55,20 @@ public class RelationshipServiceImpl implements RelationshipService {
     @Override
     public void apply(UUID id, RelationshipRequest r, UUID userId) {
         requireAdmin();
-        // 같은 두 도서를 반대 순서로 이동하는 요청도 잠금 순서는 같다.
-        List<UUID> ids = new ArrayList<>(List.of(id));
+        // 번역서와 대상뿐 아니라 실제로 갱신할 이전 원서까지 같은 순서로 잠근다.
+        // 아래 잠금 이후 다시 읽고 검토 ID를 검사하므로, 탐색 중 관계가 바뀌면 적용하지 않는다.
+        Media observed = find(id, false);
+        Set<UUID> ids = new TreeSet<>();
+        ids.add(id);
         if (r.targetId() != null && !id.equals(r.targetId())) ids.add(r.targetId());
-        ids.sort(Comparator.naturalOrder());
+        if (observed instanceof TranslatedBook translated) ids.add(translated.getOriginalBook().getId());
         Map<UUID, Media> locked = new HashMap<>();
         for (UUID key : ids) locked.put(key, find(key, true));
         Media source = locked.get(id), target = locked.get(r.targetId());
         validate(source, target, r);
         OriginalBook original = source instanceof TranslatedBook t ? t.getOriginalBook() : (OriginalBook) source;
+        if (!locked.containsKey(original.getId()))
+            throw new ValidationException("검토 이후 연결 원서가 변경되었습니다. 변경 내용을 다시 확인하세요.", Map.of("relationship", "conflict"));
         UUID previousOriginal = source instanceof TranslatedBook ? original.getId() : null;
         UUID previousWork = original.getWork() == null ? null : original.getWork().getId();
         UUID targetWork = target instanceof OriginalBook o && o.getWork() != null ? o.getWork().getId() : null;
@@ -93,8 +98,8 @@ public class RelationshipServiceImpl implements RelationshipService {
                 book.setWork(work);
             }
             audit.logUpdate(AuditEntityType.ORIGINAL_BOOK, id, userId, json("workId", previousWork), json("workId", book.getWork() == null ? null : book.getWork().getId()));
-            // 원서의 작품 관계가 변경되어도 연결 번역서의 검색 문서가 유지되도록 갱신한다.
-            book.getTranslations().forEach(this::touch);
+            // 번역서 자체는 바뀌지 않는다. 검색 이벤트만 발행해 잠그지 않은 자식 행을 UPDATE하지 않는다.
+            book.getTranslations().forEach(this::publishUpdate);
         }
         touch(source);
     }
@@ -123,10 +128,15 @@ public class RelationshipServiceImpl implements RelationshipService {
         Object value = lock ? em.find(Media.class, id, LockModeType.PESSIMISTIC_WRITE) : em.find(Media.class, id);
         Media book = (Media) Hibernate.unproxy(value);
         if (!(book instanceof OriginalBook) && !(book instanceof TranslatedBook)) throw new ResourceNotFoundException("Book", id);
+        // 앞선 관계 탐색으로 1차 캐시에 있던 도서도 잠금 획득 시점의 값으로 검사한다.
+        if (lock) em.refresh(book);
         return book;
     }
     private void touch(Media book) {
         book.setUpdatedAt(Instant.now());
+        publishUpdate(book);
+    }
+    private void publishUpdate(Media book) {
         events.publishContentEvent(new ContentEvent(book instanceof OriginalBook ? ContentEventType.ORIGINAL_BOOK_UPDATED : ContentEventType.TRANSLATED_BOOK_UPDATED,
                 book.getId(), book.getCreatedBy() == null ? null : book.getCreatedBy().getId()));
     }
