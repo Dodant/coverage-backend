@@ -97,3 +97,31 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 | `LazyInitializationException` on read APIs | Check whether `spring.jpa.open-in-view` was turned off. Controllers map entities to DTOs, so it must stay on. |
 | Elasticsearch index setup fails on startup | The nori plugin isn't installed yet. Run `docker compose ps` and wait until ES is healthy. |
 | Rate limits block local testing | `docker exec bookcover-redis sh -c "redis-cli --scan --pattern 'rate_limit:*' \| xargs -r redis-cli del"` |
+
+### 백오피스 도서·표지 버전 관리
+
+관리자 전용 `/api/admin/catalog`:
+- `GET /`: `query`(제목/저자/ISBN), `kind`(ORIGINAL/TRANSLATED), `status`, `language`, `publisher`, `hasCover`, `issue`, `needsAttention`, `page`, `size`(최대 100), `sort`(created/updated/title). 상태를 생략하면 원서·번역서의 모든 상태를 조회한다. 기존 `/admin/books`의 초안 원서 계약은 유지된다.
+- `GET /{id}`: 비공개 상태를 포함한 도서 상세·연결 도서·보완 항목. `GET /{id}/editions`는 원서 ID를 받아 원서와 번역서 전체 상세 목록을 반환한다.
+- `PUT /{bookId}/covers/{coverId}`: 표지의 label, printingFrom, usedFrom, variantType, ribbonStatus, sourceName, sourceUrl 전체 교체. 선택 필드 null/빈 값은 비우기이며, credits는 null이면 유지·목록이면 역할별 크레딧 교체다. 소속 도서·관리자 권한을 검증하고 도서 변경 이력에 기록한다. 삭제된 도서는 수정하지 않는다.
+
+`variantType`: UNKNOWN/INITIAL/RECOVER/SPECIAL/PRINTING/IMAGE_REPLACEMENT.
+`ribbonStatus`: UNKNOWN/CLEAN/BANDED. 표지 변형 추가 API도 두 필드를 선택적으로 받는다.
+`issue`: MISSING_COVER/HIDDEN_COVER/LOW_RESOLUTION/UNKNOWN_RESOLUTION/MISSING_ISBN/MISSING_SOURCE/MISSING_CREDIT/MISSING_YEAR/MISSING_PUBLISHER/UNCLASSIFIED_VARIANT.
+해상도는 대표 표지의 800×1200 기준이며, 크기 미상·숨김을 저해상도로 오판하지 않는다. 보완은 검토 작업 표시이며 공개 여부를 바꾸지 않는다.
+
+운영 배포 전에 `scripts/migrations/2026-10-27_cover_variant_metadata.sql`을 적용해야 한다. 기존 레코드의 새 필드는 UNKNOWN으로 응답한다. 디자인 묶음(`similarGroupId`)과 이미지 URL 동일성, 도서별 표지 소속은 서로 별도 관계다.
+새 목록의 DB 필터·페이지 처리·표지 소유권·크레딧 교체는 `CatalogServiceImplTest`에서 H2로 검증한다(`./gradlew test --tests '*CatalogServiceImplTest'`). PostgreSQL 및 외부 서비스 연결을 요구하지 않는다.
+
+### 관계 수정과 동일·유사 이미지 탐지
+
+- `POST /api/admin/catalog/{id}/relationship-preview`: `{action, targetId}`로 영향을 받는 도서, 현재 originalId/workId/targetWorkId를 확인한다. action은 MOVE_TRANSLATION/JOIN_WORK/LEAVE_WORK. 분리 시 targetId는 null.
+- `PUT /api/admin/catalog/{id}/relationship`: 같은 작업에 검토 결과의 `expectedOriginalId`, `expectedWorkId`, `expectedTargetWorkId`를 함께 보낸다. 도서를 정해진 순서로 잠그고 오래된 검토 상태·삭제 도서·공개 번역서의 비공개 원서 연결을 거절한다. 적용 시 감사 로그와 검색 갱신 이벤트를 기록한다.
+- `GET /api/admin/image-inspection/matches?bookId=&kind=&page=`: bookId를 생략하면 전체 도서. kind는 EXACT_FILE/SAME_URL/SIMILAR. 페이지당 20쌍이며 파일 SHA-256 일치, URL 일치, dHash 거리 6 이하(종횡비 오차 3% 이하) 순서로 구분한다. 유사 해시는 검토 후보이며 동일성 확정·자동 병합에 쓰지 않는다.
+- `POST /api/admin/image-inspection/scan`: `{after: null, limit: 10}`부터 시작하고 결과의 nextCursor를 다음 요청의 after로 보낸다. hasMore=false면 끝이다. 파일별 독립 트랜잭션으로 해시를 기록하고 실패에는 coverId/bookId/message를 반환한다. 관리자 권한 필요. 숨김·삭제·차단 표지 제외. URL은 S3 관리 경로만 허용하며 파일 크기 10MB·이미지 4천만 픽셀 이하만 분석한다.
+
+새 업로드에는 자동으로 `file_sha256`, `perceptual_hash`를 기록한다. 구형 파일 분석으로 만든 기록은 원본 업로드 검증 기록으로 승격하지 않는다. 기존 `sha256`의 차단용 픽셀 해시 의미를 유지한다. 운영에서는 `scripts/migrations/2026-10-27_image_fingerprints.sql`을 먼저 적용한다. 비교는 등록된 표지의 모든 해시 쌍을 검사하므로 대규모 도입 시 후보 인덱스/백그라운드 잡으로 확장한다.
+
+관계 변경 회귀 테스트: `./gradlew test --tests '*RelationshipServiceConcurrencyTest'`. 두 개의 별도 트랜잭션으로 교차 번역서 이동과 동일 번역서의 경쟁 이동을 검증한다. 이전 원서를 포함한 전체 수정 대상을 같은 순서로 잠그고, 잠금 후 1차 캐시를 갱신해 검토 ID를 다시 검사한다. 작품 연결 변경의 번역서에는 검색 이벤트만 발행한다.
+
+업로드 검증과 해시 계산은 `ImageValidator.MAX_PIXELS`(4천만 픽셀)를 공유한다. 초과 이미지는 래스터 디코딩·해시 계산·S3 저장 전에 거절하며, 최소 해상도 면제 계정에도 최대 픽셀 제한은 적용된다. 허용된 파일은 기존처럼 본문 디코딩을 검증하고, 해시와 썸네일 인코딩이 완료된 뒤 S3에 기록한다. `ImageUploadLimitsTest`는 초과 PNG의 400 응답과 저장소 무호출을 검증한다.

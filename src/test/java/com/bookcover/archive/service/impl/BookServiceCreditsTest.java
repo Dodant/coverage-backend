@@ -162,7 +162,7 @@ class BookServiceCreditsTest {
     private BookCover addCover(CreditInfo... credits) {
         return service.addCover(book.getId(), new AddCoverRequest("i", "t", "f", null, null, null, ImageSource.LINK,
                 "https://covers.openlibrary.org/b/id/1.jpg", "Open Library",
-                null, null, null, null, null, Arrays.asList(credits)), null);
+                null, null, null, null, null, Arrays.asList(credits), null, null), null);
     }
 
     private void updateFrontCredits(List<CreditInfo> credits) {
@@ -175,4 +175,16 @@ class BookServiceCreditsTest {
     private static List<String> keys(BookCover cover) {
         return cover.getCredits().stream().map(c -> c.getDesigner().getName() + ":" + c.getRole()).toList();
     }
+    @Test
+    void representativeChangeSerializesExistingVariantStartDate() {
+        book.getFrontCover().setUsedFrom(java.time.LocalDate.of(2026, 10, 27));
+        BookCover replacement = new BookCover(); replacement.setId(UUID.randomUUID()); replacement.setBook(book);
+        when(bookCoverRepository.findById(replacement.getId())).thenReturn(Optional.of(replacement));
+        service.setRepresentativeCover(book.getId(), replacement.getId(), editor);
+        assertThat(book.getFrontCover()).isEqualTo(replacement);
+        var previous = ArgumentCaptor.forClass(String.class);
+        verify(auditService).logUpdate(eq(AuditEntityType.ORIGINAL_BOOK), eq(book.getId()), eq(editor), previous.capture(), anyString());
+        assertThat(previous.getValue()).contains("2026-10-27");
+    }
+
 }

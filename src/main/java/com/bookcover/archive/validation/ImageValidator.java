@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +31,7 @@ public class ImageValidator {
     public static final int MIN_WIDTH = 800;
     public static final int MIN_HEIGHT = 1200;
     public static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    public static final long MAX_PIXELS = 40_000_000L;
     public static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
             "image/jpeg",
             "image/png",
@@ -69,6 +72,9 @@ public class ImageValidator {
         ImageDimensions dimensions = null;
         try {
             dimensions = getImageDimensions(file);
+            if (dimensions != null && !isWithinPixelLimit(dimensions.width(), dimensions.height())) {
+                errors.add("이미지는 4천만 픽셀 이하여야 합니다.");
+            }
             if (dimensions != null && !isValidResolution(dimensions.width(), dimensions.height())
                     && !isResolutionExempt()) {
                 errors.add(String.format(
@@ -134,6 +140,10 @@ public class ImageValidator {
         return width >= MIN_WIDTH && height >= MIN_HEIGHT;
     }
 
+    public static boolean isWithinPixelLimit(int width, int height) {
+        return width > 0 && height > 0 && (long) width * height <= MAX_PIXELS;
+    }
+
     private boolean isResolutionExempt() {
         return SecurityUtils.getCurrentUserId().map(resolutionExemptUserIds::contains).orElse(false);
     }
@@ -150,12 +160,18 @@ public class ImageValidator {
             return null;
         }
 
-        try (InputStream inputStream = file.getInputStream()) {
-            BufferedImage image = ImageIO.read(inputStream);
-            if (image == null) {
-                throw new IOException("Unable to read image");
-            }
-            return new ImageDimensions(image.getWidth(), image.getHeight());
+        try (InputStream inputStream = file.getInputStream(); ImageInputStream input = ImageIO.createImageInputStream(inputStream)) {
+            var readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) throw new IOException("Unable to read image");
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input);
+                int width = reader.getWidth(0), height = reader.getHeight(0);
+                // 초과 이미지는 래스터를 할당하기 전에 판정한다. 허용 범위는 기존처럼 본문도 디코딩한다.
+                if (!isWithinPixelLimit(width, height)) return new ImageDimensions(width, height);
+                BufferedImage image = reader.read(0);
+                return new ImageDimensions(image.getWidth(), image.getHeight());
+            } finally { reader.dispose(); }
         }
     }
 

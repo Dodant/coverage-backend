@@ -93,11 +93,13 @@ public class ImageServiceImpl implements ImageService {
 
             // Upload original image (converted to sRGB)
             byte[] originalBytes = imageToBytes(srgbImage, extension);
-            uploadToS3(originalKey, originalBytes, file.getContentType());
+            ImageFingerprint fingerprint = ImageFingerprint.of(originalBytes);
 
             // Generate and upload thumbnail
             BufferedImage thumbnail = generateThumbnail(srgbImage);
             byte[] thumbnailBytes = imageToBytes(thumbnail, extension);
+            // 검증·해시·인코딩이 모두 성공한 뒤 저장소에 기록한다.
+            uploadToS3(originalKey, originalBytes, file.getContentType());
             uploadToS3(thumbnailKey, thumbnailBytes, file.getContentType());
 
             String originalUrl = buildUrl(originalKey);
@@ -107,6 +109,8 @@ public class ImageServiceImpl implements ImageService {
             asset.setImageUrl(originalUrl);
             asset.setThumbnailUrl(thumbnailUrl);
             asset.setSha256(hash);
+            asset.setFileSha256(fingerprint.fileSha256());
+            asset.setPerceptualHash(fingerprint.perceptualHash());
             asset.setType(type);
             asset.setWidth(srgbImage.getWidth());
             asset.setHeight(srgbImage.getHeight());
@@ -125,6 +129,31 @@ public class ImageServiceImpl implements ImageService {
         } catch (IOException e) {
             log.error("Failed to upload image", e);
             throw new RuntimeException("Failed to upload image: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean indexFingerprint(String imageUrl) {
+        if (!isManagedUrl(imageUrl)) throw new ValidationException("관리 중인 저장소의 이미지만 분석할 수 있습니다.", Map.of());
+        ImageAsset asset = imageAssetRepository.findByImageUrl(imageUrl).orElseGet(() -> {
+            // 구형 표지의 해시만 기록한다. 업로드 검증을 통과한 것으로 취급하지 않는다(type/thumbnail은 비움).
+            ImageAsset legacy = new ImageAsset(); legacy.setImageUrl(imageUrl); return legacy;
+        });
+        if (asset.isBlocked()) throw new ValidationException("차단된 이미지는 분석할 수 없습니다.", Map.of());
+        if (asset.getFileSha256() != null && asset.getPerceptualHash() != null) return false;
+        try (InputStream input = s3Client.getObject(GetObjectRequest.builder().bucket(bucketName).key(extractKeyFromUrl(imageUrl)).build())) {
+            byte[] bytes = input.readNBytes(10 * 1024 * 1024 + 1);
+            if (bytes.length > 10 * 1024 * 1024) throw new IOException("파일 용량이 너무 큽니다.");
+            if (bytes.length == 0) throw new ValidationException("저장 파일이 비어 있습니다.", Map.of());
+            ImageFingerprint fingerprint = ImageFingerprint.of(bytes);
+            asset.setFileSha256(fingerprint.fileSha256()); asset.setPerceptualHash(fingerprint.perceptualHash());
+            imageAssetRepository.save(asset);
+            return true;
+        } catch (software.amazon.awssdk.services.s3.model.S3Exception e) {
+            throw new ValidationException(e.statusCode() == 404 ? "저장소에 원본 파일이 없습니다." : "저장소 파일을 읽을 수 없습니다.", Map.of());
+        } catch (IOException e) {
+            throw new ValidationException("지원하지 않거나 손상된 이미지입니다.", Map.of());
         }
     }
 
