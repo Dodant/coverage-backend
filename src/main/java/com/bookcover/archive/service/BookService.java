@@ -34,13 +34,15 @@ public interface BookService {
     OriginalBook createOriginalBook(CreateOriginalBookRequest request);
     OriginalBook updateOriginalBook(UUID id, UpdateOriginalBookRequest request, UUID userId);
     Optional<OriginalBook> getOriginalBook(UUID id);
-    void deleteOriginalBook(UUID id);
+    /** 등록자 또는 ADMIN만 삭제할 수 있다. 그 외는 AccessDeniedException(403) */
+    void deleteOriginalBook(UUID id, UUID requesterId);
 
     // 번역서 관리
     TranslatedBook createTranslatedBook(UUID originalBookId, CreateTranslatedBookRequest request);
     TranslatedBook updateTranslatedBook(UUID id, UpdateTranslatedBookRequest request, UUID userId);
     Optional<TranslatedBook> getTranslatedBook(UUID id);
-    void deleteTranslatedBook(UUID id);
+    /** 등록자 또는 ADMIN만 삭제할 수 있다. 그 외는 AccessDeniedException(403) */
+    void deleteTranslatedBook(UUID id, UUID requesterId);
 
     // 조회
     List<TranslatedBook> getTranslationsByOriginalBook(UUID originalBookId);

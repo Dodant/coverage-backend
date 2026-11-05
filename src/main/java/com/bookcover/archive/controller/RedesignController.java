@@ -113,8 +113,9 @@ public class RedesignController {
     })
     public ResponseEntity<RedesignResponse> updateRedesign(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateRedesignRequest request) {
-        Redesign redesign = redesignService.updateRedesign(id, request);
+            @Valid @RequestBody UpdateRedesignRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Redesign redesign = redesignService.updateRedesign(id, request, userDetails.getId());
         return ResponseEntity.ok(RedesignResponse.from(redesign));
     }
 
@@ -130,8 +131,10 @@ public class RedesignController {
             @ApiResponse(responseCode = "403", description = "권한 없음"),
             @ApiResponse(responseCode = "404", description = "리디자인 없음")
     })
-    public ResponseEntity<Void> deleteRedesign(@PathVariable UUID id) {
-        redesignService.deleteRedesign(id);
+    public ResponseEntity<Void> deleteRedesign(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        redesignService.deleteRedesign(id, userDetails.getId());
         return ResponseEntity.noContent().build();
     }
 

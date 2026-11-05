@@ -136,10 +136,13 @@ public class TranslatedBookController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "삭제 성공"),
             @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "403", description = "등록자·관리자가 아님"),
             @ApiResponse(responseCode = "404", description = "번역서 없음")
     })
-    public ResponseEntity<Void> deleteTranslatedBook(@PathVariable UUID id) {
-        bookService.deleteTranslatedBook(id);
+    public ResponseEntity<Void> deleteTranslatedBook(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        bookService.deleteTranslatedBook(id, userDetails.getId());
         return ResponseEntity.noContent().build();
     }
 

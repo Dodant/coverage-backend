@@ -22,9 +22,11 @@ import java.util.UUID;
 public interface RedesignService {
 
     Redesign createRedesign(CreateRedesignRequest request);
-    Redesign updateRedesign(UUID id, UpdateRedesignRequest request);
+    /** 작성자 또는 ADMIN만 수정할 수 있다. 그 외는 AccessDeniedException(403) */
+    Redesign updateRedesign(UUID id, UpdateRedesignRequest request, UUID requesterId);
     Optional<Redesign> getRedesign(UUID id);
-    void deleteRedesign(UUID id);
+    /** 작성자 또는 ADMIN만 삭제할 수 있다. 그 외는 AccessDeniedException(403) */
+    void deleteRedesign(UUID id, UUID requesterId);
 
     Page<Redesign> getRedesignsByOriginalBook(UUID originalBookId, Pageable pageable);
     Page<Redesign> getRedesignsByTranslatedBook(UUID translatedBookId, Pageable pageable);

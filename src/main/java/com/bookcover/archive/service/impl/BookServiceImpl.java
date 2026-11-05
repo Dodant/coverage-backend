@@ -50,6 +50,7 @@ import com.bookcover.archive.service.dto.UpdateTranslatedBookRequest;
 import com.bookcover.archive.validation.IsbnValidator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -291,9 +292,10 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public void deleteOriginalBook(UUID id) {
+    public void deleteOriginalBook(UUID id, UUID requesterId) {
         OriginalBook book = originalBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("OriginalBook", id));
+        requireCreatorOrAdmin(book, requesterId);
         softDelete(book, ContentEventType.ORIGINAL_BOOK_DELETED);
     }
 
@@ -442,9 +444,10 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public void deleteTranslatedBook(UUID id) {
+    public void deleteTranslatedBook(UUID id, UUID requesterId) {
         TranslatedBook book = translatedBookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TranslatedBook", id));
+        requireCreatorOrAdmin(book, requesterId);
         softDelete(book, ContentEventType.TRANSLATED_BOOK_DELETED);
     }
 
@@ -590,6 +593,14 @@ public class BookServiceImpl implements BookService {
 
     private static UUID creatorIdOf(Media book) {
         return book.getCreatedBy() != null ? book.getCreatedBy().getId() : null;
+    }
+
+    /** 삭제는 위키식 편집 대상이 아니다: 등록자 또는 ADMIN만. 등록자가 없는 옛 책은 ADMIN만 */
+    private void requireCreatorOrAdmin(Media book, UUID requesterId) {
+        if (requesterId == null || (!requesterId.equals(creatorIdOf(book))
+                && !userRepository.existsByIdAndRole(requesterId, UserRole.ADMIN))) {
+            throw new AccessDeniedException("등록자 또는 관리자만 삭제할 수 있습니다");
+        }
     }
 
 
