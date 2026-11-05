@@ -30,6 +30,7 @@ import com.bookcover.archive.validation.IsbnValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -111,7 +112,7 @@ class BookServiceImplTest {
         book.setCreatedBy(creator);
         when(translatedBookRepository.findById(book.getId())).thenReturn(Optional.of(book));
 
-        service.deleteTranslatedBook(book.getId());
+        service.deleteTranslatedBook(book.getId(), creator.getId());
 
         assertThat(book.getStatus()).isEqualTo(ContentStatus.DELETED);
         verify(contributionService).decrementContribution(creator.getId());
@@ -128,10 +129,45 @@ class BookServiceImplTest {
         book.setId(UUID.randomUUID());
         book.setStatus(ContentStatus.DELETED);
         when(originalBookRepository.findById(book.getId())).thenReturn(Optional.of(book));
+        UUID admin = UUID.randomUUID();
+        when(userRepository.existsByIdAndRole(admin, UserRole.ADMIN)).thenReturn(true);
 
-        service.deleteOriginalBook(book.getId());
+        service.deleteOriginalBook(book.getId(), admin);
 
         verifyNoInteractions(contributionService, eventPublisher);
+    }
+
+    @Test
+    void 등록자도_ADMIN도_아니면_삭제를_거절하고_아무것도_바꾸지_않는다() {
+        User creator = new User();
+        creator.setId(UUID.randomUUID());
+        OriginalBook book = new OriginalBook();
+        book.setId(UUID.randomUUID());
+        book.setCreatedBy(creator);
+        when(originalBookRepository.findById(book.getId())).thenReturn(Optional.of(book));
+        UUID other = UUID.randomUUID();
+
+        assertThatThrownBy(() -> service.deleteOriginalBook(book.getId(), other))
+                .isInstanceOf(AccessDeniedException.class);
+
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.PUBLISHED);
+        verifyNoInteractions(contributionService, eventPublisher);
+    }
+
+    @Test
+    void ADMIN은_남이_등록한_책을_삭제할_수_있다() {
+        User creator = new User();
+        creator.setId(UUID.randomUUID());
+        TranslatedBook book = new TranslatedBook();
+        book.setId(UUID.randomUUID());
+        book.setCreatedBy(creator);
+        when(translatedBookRepository.findById(book.getId())).thenReturn(Optional.of(book));
+        UUID admin = UUID.randomUUID();
+        when(userRepository.existsByIdAndRole(admin, UserRole.ADMIN)).thenReturn(true);
+
+        service.deleteTranslatedBook(book.getId(), admin);
+
+        assertThat(book.getStatus()).isEqualTo(ContentStatus.DELETED);
     }
 
     @Test

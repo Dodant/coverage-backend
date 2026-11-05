@@ -133,6 +133,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     long countByRole(UserRole role);
 
+    /** 소유자가 아닌 사용자의 삭제·수정 권한 확인용(DB 역할 기준) */
+    boolean existsByIdAndRole(UUID id, UserRole role);
+
     /**
      * 상태별 회원 수를 조회합니다.
      *

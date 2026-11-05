@@ -5,6 +5,7 @@ import com.bookcover.archive.domain.book.Redesign;
 import com.bookcover.archive.domain.book.TranslatedBook;
 import com.bookcover.archive.domain.common.ContentStatus;
 import com.bookcover.archive.domain.user.User;
+import com.bookcover.archive.domain.user.UserRole;
 import com.bookcover.archive.event.ContentEvent;
 import com.bookcover.archive.event.ContentEventType;
 import com.bookcover.archive.event.EventPublisher;
@@ -22,6 +23,7 @@ import com.bookcover.archive.service.dto.CreateRedesignRequest;
 import com.bookcover.archive.service.dto.UpdateRedesignRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -130,9 +132,10 @@ public class RedesignServiceImpl implements RedesignService {
     }
 
     @Override
-    public Redesign updateRedesign(UUID id, UpdateRedesignRequest request) {
+    public Redesign updateRedesign(UUID id, UpdateRedesignRequest request, UUID requesterId) {
         Redesign redesign = redesignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Redesign", id));
+        requireCreatorOrAdmin(redesign, requesterId);
 
         if (request.imageUrl() != null || request.thumbnailUrl() != null) {
             imageService.requireVerifiedImage(
@@ -174,9 +177,10 @@ public class RedesignServiceImpl implements RedesignService {
     }
 
     @Override
-    public void deleteRedesign(UUID id) {
+    public void deleteRedesign(UUID id, UUID requesterId) {
         Redesign redesign = redesignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Redesign", id));
+        requireCreatorOrAdmin(redesign, requesterId);
 
         // 문제 18 해결: 이미 삭제된 콘텐츠는 다시 삭제하지 않음
         if (redesign.getStatus() == ContentStatus.DELETED) {
@@ -217,5 +221,14 @@ public class RedesignServiceImpl implements RedesignService {
     @Transactional(readOnly = true)
     public Page<Redesign> getRedesignsByUser(UUID userId, Pageable pageable) {
         return redesignRepository.findByCreatedById(userId, pageable);
+    }
+
+    /** 리디자인은 회원 개인 작품이라 위키식 편집 대상이 아니다: 작성자 또는 ADMIN만 */
+    private void requireCreatorOrAdmin(Redesign redesign, UUID requesterId) {
+        UUID creatorId = redesign.getCreatedBy() != null ? redesign.getCreatedBy().getId() : null;
+        if (requesterId == null || (!requesterId.equals(creatorId)
+                && !userRepository.existsByIdAndRole(requesterId, UserRole.ADMIN))) {
+            throw new AccessDeniedException("작성자 또는 관리자만 수정·삭제할 수 있습니다");
+        }
     }
 }

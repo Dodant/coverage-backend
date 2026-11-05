@@ -122,10 +122,13 @@ public class OriginalBookController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "삭제 성공"),
             @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "403", description = "등록자·관리자가 아님"),
             @ApiResponse(responseCode = "404", description = "원서 없음")
     })
-    public ResponseEntity<Void> deleteOriginalBook(@PathVariable UUID id) {
-        bookService.deleteOriginalBook(id);
+    public ResponseEntity<Void> deleteOriginalBook(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        bookService.deleteOriginalBook(id, userDetails.getId());
         return ResponseEntity.noContent().build();
     }
 
