@@ -162,12 +162,12 @@ class BookServiceCreditsTest {
     private BookCover addCover(CreditInfo... credits) {
         return service.addCover(book.getId(), new AddCoverRequest("i", "t", "f", null, null, null, ImageSource.LINK,
                 "https://covers.openlibrary.org/b/id/1.jpg", "Open Library",
-                null, null, null, null, null, Arrays.asList(credits), null, null), null);
+                null, null, null, null, null, Arrays.asList(credits), null, null, null), null);
     }
 
     private void updateFrontCredits(List<CreditInfo> credits) {
         UpdateOriginalBookRequest.BookCoverUpdateInfo front = new UpdateOriginalBookRequest.BookCoverUpdateInfo(
-                null, null, null, null, null, null, null, null, null, credits == null ? null : Collections.unmodifiableList(credits));
+                null, null, null, null, null, null, null, null, null, credits == null ? null : Collections.unmodifiableList(credits), null);
         service.updateOriginalBook(book.getId(), new UpdateOriginalBookRequest(null, null, null, null, null, null,
                 null, null, null, null, null, null, null, front, null), editor);
     }
@@ -185,6 +185,31 @@ class BookServiceCreditsTest {
         var previous = ArgumentCaptor.forClass(String.class);
         verify(auditService).logUpdate(eq(AuditEntityType.ORIGINAL_BOOK), eq(book.getId()), eq(editor), previous.capture(), anyString());
         assertThat(previous.getValue()).contains("2026-10-27");
+    }
+
+    @Test
+    void addedVariantKeepsCopyrightHolderSeparateFromSourceAndCredits() {
+        BookCover variant = service.addCover(book.getId(), new AddCoverRequest("i", "t", "f", null, null, null, ImageSource.LINK,
+                "https://example.org/source", "이미지 제공처", "표지 변형", null, null, null, null,
+                List.of(credit("제작자", CreditRole.DESIGN)), null, null, "  권리자 / 공동 권리자  "), editor);
+        assertThat(variant.getCopyrightHolder()).isEqualTo("권리자 / 공동 권리자");
+        assertThat(variant.getSourceName()).isEqualTo("이미지 제공처");
+        assertThat(variant.getCredits().getFirst().getDesigner().getName()).isEqualTo("제작자");
+        assertThat(book.getFrontCover().getCopyrightHolder()).isNull();
+        verify(auditService).logUpdate(eq(AuditEntityType.ORIGINAL_BOOK), eq(book.getId()), eq(editor), eq(null), anyString());
+    }
+
+    @Test
+    void originalCoverUpdatePreservesOmittedCopyrightAndRecordsExplicitChanges() {
+        book.getFrontCover().setCopyrightHolder("기존 권리자");
+        updateFrontCredits(null);
+        assertThat(book.getFrontCover().getCopyrightHolder()).isEqualTo("기존 권리자");
+        var front = new UpdateOriginalBookRequest.BookCoverUpdateInfo(null, null, null, null, null, null, null, null, null, null, "변경 권리자");
+        service.updateOriginalBook(book.getId(), new UpdateOriginalBookRequest(null, null, null, null, null, null, null,
+                null, null, null, null, null, null, front, null), editor);
+        assertThat(book.getFrontCover().getCopyrightHolder()).isEqualTo("변경 권리자");
+        verify(auditService).logUpdate(eq(AuditEntityType.ORIGINAL_BOOK), eq(book.getId()), eq(editor),
+                org.mockito.ArgumentMatchers.contains("기존 권리자"), org.mockito.ArgumentMatchers.contains("변경 권리자"));
     }
 
 }

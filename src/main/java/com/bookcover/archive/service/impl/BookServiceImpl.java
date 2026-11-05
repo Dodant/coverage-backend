@@ -516,6 +516,7 @@ public class BookServiceImpl implements BookService {
         cover.setImageSource(request.imageSource());
         cover.setSourceUrl(request.sourceUrl());
         cover.setSourceName(request.sourceName());
+        cover.setCopyrightHolder(request.copyrightHolder());
         cover.setLabel(request.label());
         cover.setPrintingFrom(request.printingFrom());
         cover.setUsedFrom(request.usedFrom());
@@ -635,6 +636,7 @@ public class BookServiceImpl implements BookService {
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
         cover.setSourceName(info.sourceName());
+        cover.setCopyrightHolder(info.copyrightHolder());
         applyCredits(cover, info.credits());
         return cover;
     }
@@ -653,6 +655,7 @@ public class BookServiceImpl implements BookService {
         cover.setImageSource(info.imageSource());
         cover.setSourceUrl(info.sourceUrl());
         cover.setSourceName(info.sourceName());
+        cover.setCopyrightHolder(info.copyrightHolder());
         applyCredits(cover, info.credits());
         return cover;
     }
@@ -675,6 +678,7 @@ public class BookServiceImpl implements BookService {
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
         if (info.sourceName() != null) cover.setSourceName(info.sourceName());
+        if (info.copyrightHolder() != null) cover.setCopyrightHolder(info.copyrightHolder());
         applyCredits(cover, info.credits());
     }
 
@@ -696,6 +700,7 @@ public class BookServiceImpl implements BookService {
         if (info.imageSource() != null) cover.setImageSource(info.imageSource());
         if (info.sourceUrl() != null) cover.setSourceUrl(info.sourceUrl());
         if (info.sourceName() != null) cover.setSourceName(info.sourceName());
+        if (info.copyrightHolder() != null) cover.setCopyrightHolder(info.copyrightHolder());
         applyCredits(cover, info.credits());
     }
 
@@ -807,6 +812,7 @@ public class BookServiceImpl implements BookService {
         s.put("thumbnailUrl", cover.getThumbnailUrl());
         s.put("sourceUrl", cover.getSourceUrl());
         s.put("sourceName", cover.getSourceName());
+        s.put("copyrightHolder", cover.getCopyrightHolder());
         s.put("label", cover.getLabel());
         s.put("printingFrom", cover.getPrintingFrom());
         s.put("usedFrom", cover.getUsedFrom() == null ? null : cover.getUsedFrom().toString());

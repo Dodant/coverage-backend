@@ -78,7 +78,7 @@ class BookServiceImplTest {
                 "채식주의자", "채식주의자", "KR", "ko", 2007, "소설", null,
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
-                        null, null, null, null, null, null, null),
+                        null, null, null, null, null, null, null, null),
                 null, null, null));
 
         assertThat(book.getAuthor()).isSameAs(existing);
@@ -194,7 +194,32 @@ class BookServiceImplTest {
                 "채식주의자", null, null, "ko", null, null, null,
                 null, "한강", null, null, null, null, null, null, null,
                 new CreateOriginalBookRequest.BookCoverInfo("http://x/a.jpg", "http://x/a_t.jpg", "a.jpg",
-                        null, null, null, null, null, null, null),
+                        null, null, null, null, null, null, null, null),
                 null, createdById, status);
     }
+    @Test
+    void originalAndTranslatedCreationKeepFrontAndBackCopyrightMetadata() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String originalJson = """
+                {"title":"검증용 원서","languageCode":"ko", "frontCover":{
+                  "imageUrl":"https://example.org/front.png","thumbnailUrl":"https://example.org/thumb.png",
+                  "originalFileName":"front.png","copyrightHolder":"앞표지 권리자"}, "backCover":{
+                  "imageUrl":"https://example.org/back.png","thumbnailUrl":"https://example.org/back-thumb.png",
+                  "originalFileName":"back.png","copyrightHolder":"뒤표지 권리자"}}
+                """;
+        var original = service.createOriginalBook(mapper.readValue(originalJson, CreateOriginalBookRequest.class));
+        assertThat(original.getFrontCover().getCopyrightHolder()).isEqualTo("앞표지 권리자");
+        assertThat(original.getBackCover().getCopyrightHolder()).isEqualTo("뒤표지 권리자");
+        original.setId(UUID.randomUUID());
+        when(originalBookRepository.findById(original.getId())).thenReturn(Optional.of(original));
+        when(translatedBookRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        String translatedJson = originalJson.replace("검증용 원서", "검증용 번역서").replace("ko", "en")
+                .replace("앞표지 권리자", "번역판 앞표지 권리자").replace("뒤표지 권리자", "번역판 뒤표지 권리자");
+        var translated = service.createTranslatedBook(original.getId(), mapper.readValue(translatedJson,
+                com.bookcover.archive.service.dto.CreateTranslatedBookRequest.class));
+        assertThat(translated.getFrontCover().getCopyrightHolder()).isEqualTo("번역판 앞표지 권리자");
+        assertThat(translated.getBackCover().getCopyrightHolder()).isEqualTo("번역판 뒤표지 권리자");
+        assertThat(original.getFrontCover().getCopyrightHolder()).isEqualTo("앞표지 권리자");
+    }
+
 }

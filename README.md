@@ -125,3 +125,11 @@ Prod uses `ddl-auto: validate` and there is no migration tool, so the schema mus
 관계 변경 회귀 테스트: `./gradlew test --tests '*RelationshipServiceConcurrencyTest'`. 두 개의 별도 트랜잭션으로 교차 번역서 이동과 동일 번역서의 경쟁 이동을 검증한다. 이전 원서를 포함한 전체 수정 대상을 같은 순서로 잠그고, 잠금 후 1차 캐시를 갱신해 검토 ID를 다시 검사한다. 작품 연결 변경의 번역서에는 검색 이벤트만 발행한다.
 
 업로드 검증과 해시 계산은 `ImageValidator.MAX_PIXELS`(4천만 픽셀)를 공유한다. 초과 이미지는 래스터 디코딩·해시 계산·S3 저장 전에 거절하며, 최소 해상도 면제 계정에도 최대 픽셀 제한은 적용된다. 허용된 파일은 기존처럼 본문 디코딩을 검증하고, 해시와 썸네일 인코딩이 완료된 뒤 S3에 기록한다. `ImageUploadLimitsTest`는 초과 PNG의 400 응답과 저장소 무호출을 검증한다.
+
+### 표지 저작권자 메타데이터
+
+`BookCover.copyrightHolder`(최대 500자, 선택)는 확인해 입력한 개인·단체명이며 공동 저작권자도 함께 기록할 수 있다. 원서·번역서의 앞/뒤 표지, 표지 변형의 등록·수정 요청과 `BookCoverResponse`에 포함된다. 제작 크레딧·출판사·이미지 출처와 별도이며, 기존 데이터는 NULL로 유지한다.
+
+수정 API에서 `copyrightHolder`가 null/생략이면 기존 값을 유지하고 빈 문자열(공백 포함)이면 비운다. 앞뒤 공백은 저장 시 제거한다. 관리자 표지 메타데이터 API도 이 규칙을 적용하므로 구형 클라이언트의 요청이 권리자 정보를 지우지 않는다. 변경 내용은 표지/도서 감사 이력에 기록한다.
+
+운영에서는 `scripts/migrations/2026-10-28_cover_copyright_holder.sql`을 먼저 적용한다. 개발 환경은 기동 시 ddl-auto=update로 컬럼을 추가한다.

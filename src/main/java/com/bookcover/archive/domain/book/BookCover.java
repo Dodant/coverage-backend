@@ -80,6 +80,15 @@ public class BookCover {
     @Column(length = 100)
     private String sourceName;
 
+    /** 확인해 기록한 표지 저작권자. 여러 개인·단체를 함께 기록할 수 있으며 출처·제작 크레딧과 별도다. */
+    @Column(length = 500)
+    private String copyrightHolder;
+
+    public String getCopyrightHolder() { return copyrightHolder; }
+    public void setCopyrightHolder(String value) {
+        copyrightHolder = value == null || value.isBlank() ? null : value.trim();
+    }
+
     /** 언어가 달라도 디자인이 비슷한 표지끼리 같은 값. 관리자가 백오피스에서 묶는다(없으면 null) */
     @Column(name = "similar_group_id")
     private UUID similarGroupId;

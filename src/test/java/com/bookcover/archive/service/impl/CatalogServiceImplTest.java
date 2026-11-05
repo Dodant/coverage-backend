@@ -114,7 +114,7 @@ class CatalogServiceImplTest {
         TranslatedBook t = translation(o);
         UUID coverId = o.getFrontCover().getId(); flush();
         var request = new UpdateCoverMetadataRequest("10쇄 리커버", 10, LocalDate.of(2026, 10, 1), CoverVariantType.RECOVER,
-                RibbonStatus.CLEAN, "출판사", "https://publisher.example/book", null);
+                RibbonStatus.CLEAN, "출판사", "https://publisher.example/book", null, null);
         service.updateCover(o.getId(), coverId, request, UUID.randomUUID()); flush();
         var c = em.find(BookCover.class, coverId);
         assertThat(c.getPrintingFrom()).isEqualTo(10); assertThat(c.getVariantType()).isEqualTo(CoverVariantType.RECOVER);
@@ -122,14 +122,14 @@ class CatalogServiceImplTest {
         assertThat(c.getUsedFrom()).isEqualTo(LocalDate.of(2026, 10, 1));
         verify(audit).logUpdate(any(), eq(o.getId()), any(), contains("UNKNOWN"), contains("RECOVER"));
         assertThatThrownBy(() -> service.updateCover(t.getId(), coverId, request, UUID.randomUUID())).isInstanceOf(ValidationException.class);
-        service.updateCover(o.getId(), coverId, new UpdateCoverMetadataRequest("", null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, "", "", null), UUID.randomUUID()); flush();
+        service.updateCover(o.getId(), coverId, new UpdateCoverMetadataRequest("", null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, "", "", null, null), UUID.randomUUID()); flush();
         assertThat(em.find(BookCover.class, coverId).getPrintingFrom()).isNull();
         assertThat(em.find(BookCover.class, coverId).getSourceUrl()).isNull();
     }
 
     @Test void rejectsNonAdminAndDeletedMutation() {
         OriginalBook o = original("삭제", ContentStatus.DELETED); UUID coverId = o.getFrontCover().getId(); flush();
-        var request = new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, null);
+        var request = new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, null, null);
         assertThatThrownBy(() -> service.updateCover(o.getId(), coverId, request, UUID.randomUUID())).isInstanceOf(ValidationException.class);
         SecurityContextHolder.clearContext();
         assertThatThrownBy(() -> service.list(filter(null), 0, 30, "created")).isInstanceOf(ValidationException.class);
@@ -142,7 +142,7 @@ class CatalogServiceImplTest {
         var designer = new com.bookcover.archive.domain.contributor.Designer(); designer.setName("김디자인"); em.persist(designer);
         UUID coverId = o.getFrontCover().getId(); UUID designerId = designer.getId(); flush();
         var credit = new UpdateCoverMetadataRequest.CreditAssignment(designerId, CreditRole.DESIGN);
-        var request = new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.INITIAL, RibbonStatus.CLEAN, null, null, List.of(credit, credit));
+        var request = new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.INITIAL, RibbonStatus.CLEAN, null, null, List.of(credit, credit), null);
         service.updateCover(o.getId(), coverId, request, UUID.randomUUID()); flush();
         assertThat(em.find(BookCover.class, coverId).getCredits()).hasSize(1);
         verify(events).publishContentEvent(argThat(event -> event.entityId().equals(o.getId())));
@@ -150,10 +150,10 @@ class CatalogServiceImplTest {
         service.updateCover(o.getId(), coverId, request, UUID.randomUUID()); flush();
         assertThat(em.find(BookCover.class, coverId).getCredits()).hasSize(1);
         var changed = new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.INITIAL, RibbonStatus.CLEAN, null, null,
-                List.of(new UpdateCoverMetadataRequest.CreditAssignment(designerId, CreditRole.ILLUSTRATION)));
+                List.of(new UpdateCoverMetadataRequest.CreditAssignment(designerId, CreditRole.ILLUSTRATION)), null);
         service.updateCover(o.getId(), coverId, changed, UUID.randomUUID()); flush();
         assertThat(em.find(BookCover.class, coverId).getCredits().getFirst().getRole()).isEqualTo(CreditRole.ILLUSTRATION);
-        service.updateCover(o.getId(), coverId, new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, List.of()), UUID.randomUUID()); flush();
+        service.updateCover(o.getId(), coverId, new UpdateCoverMetadataRequest(null, null, null, CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, List.of(), null), UUID.randomUUID()); flush();
         assertThat(service.list(filter(Issue.MISSING_CREDIT), 0, 30, "created").getTotalElements()).isEqualTo(1);
     }
     private com.bookcover.archive.service.RelationshipService relationships() {
@@ -237,6 +237,42 @@ class CatalogServiceImplTest {
         assertThat(result.failures().getFirst().bookId()).isEqualTo(book.getId());
         assertThat(result.failures().getFirst().message()).isEqualTo("원본 없음");
         assertThat(images.scan(result.nextCursor(), 10).examined()).isZero();
+    }
+
+    @Test void copyrightHolderPersistsPerCoverAndIsNotInferredFromSourceOrCredits() {
+        OriginalBook book = original("저작권 확인", ContentStatus.PUBLISHED);
+        TranslatedBook translated = translation(book);
+        BookCover variant = cover(); variant.setBook(book); book.getCovers().add(variant);
+        UUID firstId = book.getFrontCover().getId(), translatedId = translated.getFrontCover().getId();
+        book.getFrontCover().setSourceName("이미지 제공처"); flush();
+        assertThat(em.find(BookCover.class, firstId).getCopyrightHolder()).isNull();
+        var request = new UpdateCoverMetadataRequest("첫 표지", null, null, CoverVariantType.INITIAL, RibbonStatus.UNKNOWN,
+                "이미지 제공처", "https://example.org/source", null, "  홍길동 / 공동 권리자  ");
+        service.updateCover(book.getId(), firstId, request, UUID.randomUUID()); flush();
+        assertThat(em.find(BookCover.class, firstId).getCopyrightHolder()).isEqualTo("홍길동 / 공동 권리자");
+        assertThat(em.find(BookCover.class, variant.getId()).getCopyrightHolder()).isNull();
+        assertThat(em.find(BookCover.class, translatedId).getCopyrightHolder()).isNull();
+        var response = (com.bookcover.archive.controller.dto.book.OriginalBookResponse) service.detail(book.getId()).book();
+        assertThat(response.frontCover().copyrightHolder()).isEqualTo("홍길동 / 공동 권리자");
+        verify(audit).logUpdate(any(), eq(book.getId()), any(), contains("\"copyrightHolder\":null"), contains("홍길동 / 공동 권리자"));
+        service.updateCover(book.getId(), firstId, new UpdateCoverMetadataRequest("기존 요청", null, null, CoverVariantType.INITIAL,
+                RibbonStatus.UNKNOWN, "이미지 제공처", "https://example.org/source", null, null), UUID.randomUUID()); flush();
+        assertThat(em.find(BookCover.class, firstId).getCopyrightHolder()).isEqualTo("홍길동 / 공동 권리자");
+        service.updateCover(book.getId(), firstId, new UpdateCoverMetadataRequest("첫 표지", null, null, CoverVariantType.INITIAL,
+                RibbonStatus.UNKNOWN, "이미지 제공처", "https://example.org/source", null, "  "), UUID.randomUUID()); flush();
+        var cleared = em.find(BookCover.class, firstId);
+        assertThat(cleared.getCopyrightHolder()).isNull();
+        assertThat(cleared.getSourceName()).isEqualTo("이미지 제공처");
+    }
+
+    @Test void translatedCoverCanHaveItsOwnCopyrightHolder() {
+        var original = original("원서", ContentStatus.PUBLISHED); var translated = translation(original);
+        UUID originalCoverId = original.getFrontCover().getId(), translatedCoverId = translated.getFrontCover().getId(); flush();
+        service.updateCover(translated.getId(), translatedCoverId, new UpdateCoverMetadataRequest(null, null, null,
+                CoverVariantType.UNKNOWN, RibbonStatus.UNKNOWN, null, null, null, "번역판 저작권자"), UUID.randomUUID()); flush();
+        var response = (com.bookcover.archive.controller.dto.book.TranslatedBookResponse) service.detail(translated.getId()).book();
+        assertThat(response.frontCover().copyrightHolder()).isEqualTo("번역판 저작권자");
+        assertThat(em.find(BookCover.class, originalCoverId).getCopyrightHolder()).isNull();
     }
 
 }
