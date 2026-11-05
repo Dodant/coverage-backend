@@ -5,22 +5,36 @@ Java 21 · Spring Boot 3.2.5 · Gradle · PostgreSQL · Redis · Elasticsearch(n
 
 요구사항 원문: `.kiro/specs/book-cover-archive/{requirements,design,tasks}.md` — 코드·커밋의 "요구사항 N.M"은 여기 번호다.
 
+## 작업 전에 읽을 문서
+
+| 작업 | 먼저 볼 문서 |
+|---|---|
+| 엔드포인트 추가·권한·레이트 리밋·응답 형식 | [docs/API.md](docs/API.md), [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#엔드포인트-추가변경) |
+| 엔티티·컬럼·인덱스 변경, 마이그레이션 SQL | [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#엔티티-필드테이블-변경-스키마-변경) |
+| 검색·ES 필드·Kafka 이벤트·outbox | [ARCHITECTURE.md](ARCHITECTURE.md#비동기-흐름-kafka), [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#elasticsearch-필드-추가) |
+| 이미지 업로드·해시·테이크다운 | [ARCHITECTURE.md](ARCHITECTURE.md#이미지-파이프라인), [docs/API.md](docs/API.md#테이크다운-승인의-효과) |
+| 백오피스(관리자) API | [docs/API.md](docs/API.md#관리자-api-admin--admin) |
+| 테스트 작성·실행, 배포 순서 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#테스트) |
+| 버그 수정 전 "이미 알려진 동작인가" 확인 | [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) |
+
+영역별 규칙은 `.claude/rules/`(해당 경로 파일을 열면 자동 적용). 문서와 코드가 다르면 코드가 맞다 — 문서를 고친다.
+
 ## 명령어
 
 ```bash
 docker compose up -d                 # Postgres/Redis/ES/RustFS/Kafka (ES는 첫 기동 시 nori 플러그인 설치)
 ./gradlew bootRun                    # 기본 프로필 dev, http://localhost:8080/api (context-path /api)
 ./gradlew build -x test              # 컴파일+패키징
-./gradlew test                       # 전체 테스트
+./gradlew test                       # 전체 테스트 (docker 불필요: Mockito·H2)
 ./gradlew test --tests 'com.bookcover.archive.validation.IsbnValidatorTest'   # 단일 테스트
-python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 검증 (smoke_*.py, 실패 시 non-zero, `BASE` 환경변수는 smoke_auth만 지원)
+python3 scripts/smoke_rate_limits.py # 실행 중인 서버 대상 시나리오 검증 (smoke_*.py, 실패 시 non-zero, `BASE` 환경변수는 smoke_auth·smoke_credits_series만 지원)
 ```
 
 - 헬스체크: `curl localhost:8080/api/actuator/health`, Swagger: `/api/swagger-ui.html`
 - 책 자동 등록: `/register-book "<제목>"` 스킬(`.claude/skills/register-book/`, 에이전트 계정 + 면제 환경변수 필요). 실행 기록은 `api.py serve`(읽기 전용 JSON)를 띄우고 백오피스(`../coverage-backoffice`)에서 본다
 - 린트/포맷: TODO — Checkstyle/Spotless 등 설정 없음
 - 사람용 실행 가이드(계정 생성, ADMIN 승격, API 개요, prod 환경변수)는 `README.md`
-- 도메인 모델·Kafka 흐름·검색 인덱싱·알려진 결함은 `ARCHITECTURE.md`
+- 구조·이벤트 흐름·설계 결정은 `ARCHITECTURE.md`, 그 외는 위 표의 `docs/*`
 
 ## 설정·환경변수
 
@@ -55,7 +69,7 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
   - 그 외(인터셉터 등): `SecurityUtils.getCurrentUserId()` (`Optional<UUID>`)
 - 과거 인터셉터가 principal을 String으로 가정해 모든 요청을 비로그인으로 처리한 버그가 있었다(eb1e9be). 직접 파싱하지 말 것.
 - 접근 규칙은 `SecurityConfig` 한 곳: 공개 GET 목록, `/admin/**`는 ADMIN, `POST /takedowns`는 비회원 허용, 나머지는 인증 필요. 새 공개 엔드포인트는 여기에 추가해야 한다.
-- 서비스 레이어에서도 ADMIN 역할을 재검증한다(`ModerationServiceImpl`, `TakedownServiceImpl`).
+- 서비스 레이어 ADMIN 재검증은 일부만: `TakedownServiceImpl`·`ModerationServiceImpl.reviewReport`는 DB 역할, Catalog/Relationship/ImageInspection/CoverGroup/Tag 서비스는 `SecurityUtils.hasRole("ADMIN")`(실패 시 `ValidationException` = 400). 새 관리자 기능은 `controller/admin/` + 클래스 `@PreAuthorize("hasRole('ADMIN')")`.
 
 ### 레이트 리밋 (공통 로직)
 - `config/ratelimit/RateLimitInterceptor` — `WebMvcConfig`에서 전체 경로에 등록(Swagger/actuator 제외).
@@ -85,8 +99,9 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 
 ## 테스트
 
-- 현재 `src/test`는 `validation/` 단위 테스트 5개 + `RateLimitInterceptorTest`(Mockito)뿐. Spring 컨텍스트를 띄우는 테스트 없음.
-- Testcontainers 의존성과 `application-test.yml`(포트 5433/6380/9201/9093/9002)은 있지만 이를 쓰는 통합 테스트도, 해당 포트를 띄우는 compose도 없다. TODO: 통합 테스트 실행 방법 미정.
+- 대부분 Mockito로 서비스를 직접 생성하는 단위 테스트(생성자 주입이라 컨텍스트 불필요). JPA·네이티브 SQL·잠금은 `@DataJpaTest` + H2 PostgreSQL 모드(`CatalogServiceImplTest`, `RelationshipServiceConcurrencyTest` 설정을 복사). `@SpringBootTest`는 없다.
+- Testcontainers 의존성과 `application-test.yml`(포트 5433/6380/9201/9093/9002)은 있지만 쓰는 테스트도, 해당 포트를 띄우는 compose도 없다. TODO: 통합 테스트 실행 방법 미정.
+- 상세(종류별 예, H2 설정, 스모크 목록)는 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#테스트).
 - API 동작 검증은 `scripts/smoke_*.py`(서버 실행 중 + docker compose 필요, `docker exec bookcover-redis`로 레이트 리밋 키 초기화).
 
 ## Git 규칙
@@ -109,3 +124,9 @@ config/security/ JWT·Security            config/ratelimit/  @RateLimited + 인�
 - 매핑 안 된 경로도 404가 아니라 **500(INTERNAL_ERROR)** 이 나온다(`GlobalExceptionHandler`의 `@ExceptionHandler(Exception.class)`가 라우팅 실패까지 잡음). 500이면 경로 오타부터 의심.
 - 브라우징은 `/search/browse/...`에 있다. `SecurityConfig`의 `GET /browse/**` permitAll 규칙은 매칭되는 컨트롤러가 없다.
 - 처리되지 않은 예외는 `GlobalExceptionHandler`에서 로그로 남긴다 — 500 원인은 서버 로그부터 확인.
+- 이미지 한도(800×1200, 10MB, 4천만 픽셀, 형식)는 `ImageValidator` **상수**다. `application.yml`의 `image.min-width/min-height/max-file-size/allowed-formats`는 읽히지 않으므로 yml만 바꾸면 아무 일도 안 일어난다.
+- 책·리디자인에 넣는 이미지 URL은 업로드 API가 남긴 `image_assets` 기록이 있어야 한다(`requireVerifiedImage`). 스크립트·테스트에서 외부 URL을 그대로 넣으면 400.
+- `image_assets`의 해시 3종은 의미가 다르다: `sha256`=픽셀(테이크다운 차단), `file_sha256`=파일(동일 탐지), `perceptual_hash`=dHash(유사 후보). 섞어 쓰지 말 것.
+- 콘텐츠 이벤트는 outbox(`content_outbox_events`)를 거쳐 1초마다 1건씩 Kafka로 간다. 검색 반영이 늦으면 미발행 행부터 본다. 모더레이션 이벤트는 outbox를 쓰지 않는다.
+- 공개 조회는 `PUBLISHED`만 노출해야 한다(`Media.isPublic()`, ES `status` 필터). ES 인덱스에는 모든 상태 문서가 들어 있으므로 새 검색 쿼리에 필터를 빠뜨리면 DRAFT·HIDDEN이 샌다.
+- 테이크다운 승인은 콘텐츠를 HIDDEN으로 바꾸고 S3 파일을 **삭제**한다. `restore`로는 이미지가 돌아오지 않는다.
