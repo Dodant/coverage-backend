@@ -79,7 +79,7 @@ exception/         ErrorCode, GlobalExceptionHandler, 도메인 예외
 
 - **Media(JOINED) = OriginalBook | TranslatedBook.** 번역서는 원서 하나에 반드시 속한다. `Work`는 같은 작품의 여러 원서 판을 묶는다(원서만 `work_id`를 가짐).
 - **표지(BookCover)**: 책마다 대표 앞면(`front_cover_id`, 필수), 선택 뒷면(`back_cover_id`), 같은 ISBN의 앞면 변형(`book_id`가 같은 다른 표지: 리커버·특정 쇄·특별판). **크레딧은 책이 아니라 표지에 붙는다.** 디자이너 프로필, `/designers/{id}/covers`, ES `designers`는 모두 표지 크레딧에서 나온다.
-- **위키식 편집**: 로그인 사용자는 누구나 어떤 책이든 수정·표지 추가·대표 표지 변경을 할 수 있다(의도된 결정, 소유권 검사 없음). 바뀐 필드만 이전 값과 함께 `UPDATE` 감사 로그로 남고 `GET /admin/dashboard/logs/entity/{ORIGINAL_BOOK|TRANSLATED_BOOK}/{id}`로 본다. 되돌리기는 수동(이전 값으로 PUT).
+- **위키식 편집**: 로그인 사용자는 누구나 어떤 책이든 수정·표지 추가·대표 표지 변경을 할 수 있다(의도된 결정, 소유권 검사 없음). 바뀐 필드만 이전 값과 함께 `UPDATE` 감사 로그로 남고 `GET /admin/dashboard/logs/entity/{ORIGINAL_BOOK|TRANSLATED_BOOK}/{id}`로 본다. 되돌리기는 수동(이전 값으로 PUT). **책 삭제와 리디자인 수정·삭제는 위키 모델이 아니다** — 현재 소유권 검사가 빠져 있다([docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md)).
 - **공개 상태**: `ContentStatus` = DRAFT/PUBLISHED/HIDDEN/DELETED. 공개 경로는 PUBLISHED만. 표지는 별도 `hidden` 플래그.
 - **기여자**: Author/Publisher/Designer/Translator는 별칭을 가진 별도 엔티티. 이름 unique가 없어 중복은 관리자 병합으로 정리.
 - **다형 대상**: Like/Comment/CollectionItem/Report는 FK 없이 `(targetType, targetId)`. 서비스가 존재를 확인한다.
@@ -175,7 +175,7 @@ Spring multipart 한도: 파일 10MB, 요청 15MB.
 
 | 결정 | 이유 / 트레이드오프 |
 |---|---|
-| 위키식 책 편집(소유권 검사 없음) | 아카이브를 여럿이 채운다. 안전장치는 감사 로그와 수동 되돌리기 |
+| 위키식 책 편집(소유권 검사 없음, 삭제·리디자인 제외) | 아카이브를 여럿이 채운다. 안전장치는 감사 로그와 수동 되돌리기 |
 | 크레딧을 표지 단위로 | 리커버마다 디자이너가 다르다. 책 단위 `designer_id`는 2단계 마이그레이션으로 제거 |
 | 콘텐츠 이벤트 transactional outbox | 커밋 후 Kafka 실패 시 검색 색인 유실 방지. 대신 릴레이 처리량이 낮다 |
 | ES는 읽기 모델, 리스너는 DB 재조회 | 이벤트 순서·중복에 둔감. 복구는 전체 재색인 |

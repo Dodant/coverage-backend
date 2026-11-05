@@ -72,14 +72,14 @@ GET 공개 패턴 안에 있어도 핸들러가 `userDetails.getId()`를 부르�
 
 ### 책 — GET 공개, 쓰기 인증
 
-누구나(로그인 사용자) 어떤 책이든 수정한다(위키 모델, 소유권 검사 없음). 수정은 감사 로그에 남는다.
+누구나(로그인 사용자) 어떤 책이든 수정한다(위키 모델, 소유권 검사 없음). 수정은 감사 로그에 남는다. **삭제는 위키 모델 대상이 아니다** — 현재 검사가 빠져 있는 결함이다([KNOWN_ISSUES.md](KNOWN_ISSUES.md)).
 
 | 메서드 | 경로 | RL | 비고 |
 |---|---|---|---|
 | POST | `/books/original` | UPLOAD | `CreateOriginalBookRequest`. `status=DRAFT`는 ADMIN만, 그 외 상태값은 400 |
 | GET | `/books/original/{id}` | | PUBLISHED만 |
 | PUT | `/books/original/{id}` | UPLOAD | `UpdateOriginalBookRequest` |
-| DELETE | `/books/original/{id}` | | 소프트 삭제(DELETED). 소유권 검사 없음 |
+| DELETE | `/books/original/{id}` | | 소프트 삭제(DELETED). 소유권 검사 누락(결함) |
 | GET | `/books/original/{id}/translations` | | 리스트 |
 | GET | `/books/original/check-duplicate?isbn=` | | ISBN 중복 확인(공개 원서·번역서 모두) |
 | GET | `/books/original/find-similar?title=&authorName=&year=` | | year 선택 |
@@ -115,7 +115,7 @@ GET 공개 패턴 안에 있어도 핸들러가 `userDetails.getId()`를 부르�
 | 메서드 | 경로 | 비고 |
 |---|---|---|
 | POST | `/redesigns` | `CreateRedesignRequest`. 원서·번역서 중 하나 이상 연결 필수 |
-| GET/PUT/DELETE | `/redesigns/{id}` | 수정·삭제에 작성자 검사 없음 |
+| GET/PUT/DELETE | `/redesigns/{id}` | 수정·삭제에 작성자 검사 누락(결함, 리디자인은 위키 모델 아님) |
 | GET | `/redesigns/by-original/{id}`, `/by-translated/{id}`, `/by-user/{userId}` | Page |
 | GET | `/redesigns/my` | 로그인 필요(비로그인 시 500) |
 

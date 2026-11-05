@@ -11,7 +11,7 @@
 | `GET /covers/{id}`는 소속 책이 DRAFT/HIDDEN이어도 표지를 보여준다 | `CoverController` | `cover.hidden`만 확인 |
 | 저자·출판사 프로필의 책 수는 모든 상태를 센다(목록은 PUBLISHED만) | `OriginalBookRepository.countByAuthorId/countByPublisherId` | 숫자 불일치 |
 | `GET /tags?category=`, `GET /tags/{id}`는 미승인 태그도 반환 | `TagController` | 다른 분기는 approved만 |
-| 책 삭제·리디자인 수정/삭제에 소유권 검사 없음 | `BookServiceImpl`, `RedesignServiceImpl` | 책 **편집**은 위키 모델로 의도됨. **삭제·리디자인까지 의도인지는 미확인** |
+| 책 삭제(`DELETE /books/*/{id}`)와 리디자인 수정·삭제(`PUT·DELETE /redesigns/{id}`)에 소유권 검사가 없어 로그인 사용자 누구나 할 수 있다 | `BookServiceImpl.softDelete`, `RedesignServiceImpl`, 컨트롤러가 사용자 ID를 넘기지 않음 | **의도 아님(결함).** 위키 모델은 책 **편집**(수정·표지 추가·대표 표지 변경)에만 해당. 허용 주체(등록자/ADMIN) 규칙은 고칠 때 정한다 |
 | 표지 추가·대표 표지 변경이 DRAFT/HIDDEN 책에도 된다 | `BookServiceImpl.findActiveBook`(DELETED만 제외) | |
 | 읽기 GET 중 로그인이 필요한 것: 댓글 목록, 좋아요 수, `/users/{id}`, `/users/search`, `/collections/{id}` | `SecurityConfig` | 의도 미확인. `/collections/{id}`의 비로그인 분기는 도달 불가, LINK_ONLY 컬렉션은 ID만 알면 로그인 사용자 누구나 조회 |
 | 서비스의 ADMIN 재검증 실패가 403이 아니라 400 | Catalog/Relationship/ImageInspection/CoverGroup/Tag 서비스 | `ValidationException` 사용 |
