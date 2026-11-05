@@ -131,7 +131,7 @@ erDiagram
 - 마이그레이션 도구가 없다. prod `ddl-auto: validate`는 테이블·컬럼·타입만 본다(인덱스·CHECK·unique는 검사하지 않음).
 - `scripts/migrations/`에만 있고 엔티티에 선언되지 않은 것들 — **dev DB(ddl-auto=update)에는 없다**:
   - `cover_credits.role` CHECK, `book_cover_tags`의 `ON DELETE CASCADE`와 `tag_id` 인덱스
-  - 부분 인덱스: `idx_content_outbox_pending`, `idx_book_covers_similar_group_id`, `idx_image_assets_blocked_sha256`, `idx_image_assets_file_sha256`
+  - 부분 인덱스: `idx_content_outbox_pending`, `idx_book_covers_similar_group_id`, `idx_image_assets_blocked_sha256` / 일반 인덱스: `idx_image_assets_file_sha256`
   - DB 기본값 `blocked DEFAULT false`, `hidden DEFAULT false`
 - 기본 테이블(users, media, book_covers …)을 만드는 스크립트는 없다. 마이그레이션은 2026-10-14 이후의 증분만 담고 있다.
 

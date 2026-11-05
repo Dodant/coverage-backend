@@ -44,7 +44,7 @@ GET 공개 패턴 안에 있어도 핸들러가 `userDetails.getId()`를 부르�
 
 | 액션 | 한도 | 붙은 엔드포인트 |
 |---|---|---|
-| `UPLOAD` | 10/시간 | `POST /covers`, `POST /covers/redesign`, `POST·PUT /books/original`, `POST·PUT /books/translated`, `POST /books/{bookId}/covers` |
+| `UPLOAD` | 10/시간 | `POST /covers`, `POST /covers/redesign`, `POST /books/original`, `PUT /books/original/{id}`, `POST /books/translated/original/{originalBookId}`, `PUT /books/translated/{id}`, `POST /books/{bookId}/covers` |
 | `COMMENT` | 30/분 | `POST /comments`, `PUT /comments/{id}` |
 | `LIKE` | 100/분 | `POST /likes/{targetType}/{targetId}` |
 | `REPORT` | 5/시간 | `POST /reports` |

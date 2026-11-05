@@ -26,7 +26,7 @@
 | outbox 릴레이는 tick당 1건(≈1건/초). 대량 변경 시 색인이 밀린다 | `ContentOutboxRelay` | |
 | 실패한 outbox 이벤트가 큐 맨 앞에 남아 무한 재시도하며 뒤 이벤트를 막는다(시도 횟수 없음) | `ContentOutboxRelay` | `SKIP LOCKED`도 없어 다중 인스턴스는 같은 행에서 직렬화 |
 | 발행된 outbox 행을 지우지 않는다 | | 테이블이 계속 커진다 |
-| `KafkaEventPublisher`의 "outbox로 바꿀 것" `ponytail:` 주석은 콘텐츠 이벤트에 대해선 이미 해결됨(모더레이션 이벤트만 해당) | `KafkaEventPublisher.java` | |
+| 낡은 주석: `KafkaEventPublisher`의 "outbox로 바꿀 것" `ponytail:` 주석(콘텐츠 이벤트는 이미 outbox, 모더레이션 이벤트만 해당), `EntityManagementServiceImpl.mergeDesigners`의 "이벤트는 커밋 후 발행" 주석(실제로는 트랜잭션 안에서 outbox 저장) | `KafkaEventPublisher.java`, `EntityManagementServiceImpl.java` | |
 | 저자·출판사 병합은 재색인 이벤트를 내지 않아 ES의 저자/출판사명이 낡는다(디자이너 병합은 냄) | `EntityManagementServiceImpl` | |
 | `BookService.linkToWork`는 호출처 없는 죽은 코드(감사·이벤트도 없음). 작품 연결은 관계 수정 API를 쓴다 | `BookServiceImpl` | |
 | 모더레이션 알림 미구현(리스너는 로그만), `CONTENT_HIDDEN` 등 다수 이벤트 타입은 정의만 있음 | `ModerationEventListener` | |
@@ -54,7 +54,7 @@
 |---|---|---|
 | 기여자 이름·시리즈 (name, publisher) unique 제약 없음 → 동시 등록 시 중복 | `BookServiceImpl` | `ponytail:` 주석, 관리자 병합으로 정리 |
 | `CollectionItem` 중복 제약 없음 | | |
-| DRAFT로 만든 원서는 나중에 공개돼도 기여 수에 안 들어간다. 표지 변형 추가도 기여 1회로 센다 | `BookServiceImpl`, `ContributionServiceImpl` | |
+| 기여 수가 어긋난다: DRAFT로 만든 원서는 나중에 공개돼도 +1이 안 되는데, 삭제(`softDelete`)는 상태와 무관하게 **등록자**의 수를 -1 한다(남이 삭제해도 등록자 수가 준다). 표지 변형 추가도 기여 1회로 센다 | `BookServiceImpl.softDelete`, `ContributionServiceImpl` | |
 | 병합 감사 로그 JSON을 `String.format`으로 만들어 이름에 따옴표가 있으면 깨진다 | `EntityManagementServiceImpl` | |
 | 댓글 삭제는 하드 삭제 | `SocialServiceImpl` | |
 | `TakedownRequest.preventReupload`는 항상 false, `isReuploadPrevented`는 죽은 경로 | `TakedownServiceImpl` | 차단은 `image_assets.sha256` |

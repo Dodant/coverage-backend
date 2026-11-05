@@ -11,7 +11,8 @@ paths:
 상세 절차: `docs/DEVELOPMENT.md`의 "엔티티 필드·테이블 변경", "Elasticsearch 필드 추가". 현재 모델: `docs/DATA_MODEL.md`.
 
 - 엔티티 컬럼을 추가·변경하면 **같은 변경에** `scripts/migrations/<YYYY-MM-DD>_<이름>.sql`을 넣는다. 멱등(`IF NOT EXISTS`, NULL 가드 백필). prod는 `ddl-auto=validate`라 스크립트 없이 배포하면 기동이 실패한다.
-- 컬럼 삭제는 배포 후 실행하는 별도 스크립트로 분리한다. dev `update`는 삭제·타입 변경·인덱스를 하지 않는다.
+- 컬럼 삭제는 배포 후 실행하는 별도 스크립트로 분리한다. dev `update`는 컬럼 삭제·타입 변경·데이터 이전을 하지 않고, SQL에만 있는 부분 인덱스·CHECK·`ON DELETE CASCADE`도 만들지 않는다(엔티티에 선언한 인덱스는 만든다).
+- 스크립트 첫 줄 주석에 "배포 전"/"배포 후"를 적는다.
 - 새 컬럼은 nullable로 추가하고, 기존 행의 NULL을 어떻게 응답할지 getter에서 정한다(예: `BookCover.getVariantType()` → UNKNOWN).
 - 카운터는 `@Modifying @Query` 단일 UPDATE. 엔티티를 읽어 +1 하고 저장하지 않는다.
 - 다형 대상(Like/Comment/CollectionItem/Report)은 FK가 없다. 대상 존재 검사는 서비스 몫이다.

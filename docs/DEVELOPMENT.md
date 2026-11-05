@@ -26,10 +26,10 @@ docker compose ps             # elasticsearch가 healthy인지 확인 후 기동
 7. [docs/API.md](API.md)의 해당 표를 갱신.
 
 ### 엔티티 필드·테이블 변경 (스키마 변경)
-1. 엔티티 수정. dev는 `ddl-auto=update`로 컬럼이 생기지만 **컬럼 삭제·타입 변경·데이터 이전·인덱스는 하지 않는다**.
-2. `scripts/migrations/<YYYY-MM-DD>_<이름>.sql`을 멱등하게 작성(`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, 백필은 `WHERE ... IS NULL` 가드). 첫 줄 주석에 목적과 실행 시점(배포 전/후).
+1. 엔티티 수정. dev는 `ddl-auto=update`로 컬럼과 엔티티에 선언한 인덱스(`@Table(indexes=...)`)를 만들지만 **컬럼 삭제·타입 변경·데이터 이전은 하지 않고**, SQL에만 있는 부분 인덱스·CHECK·`ON DELETE CASCADE`도 만들지 않는다.
+2. `scripts/migrations/<YYYY-MM-DD>_<이름>.sql`을 멱등하게 작성(`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, 백필은 `WHERE ... IS NULL` 가드). 첫 줄 주석에 목적과 실행 시점("배포 전"/"배포 후")을 반드시 적는다.
 3. 옛 앱이 쓰는 컬럼 삭제는 **배포 후** 실행하는 별도 스크립트로 분리(예: `2026-10-14_cover_credits_series.sql` → `2026-10-14_drop_book_designer.sql`).
-4. 기존 행이 NULL일 때의 응답을 정한다(예: `variantType` getter가 NULL → `UNKNOWN`). prod `validate`는 NOT NULL 신규 컬럼을 기존 행과 함께 받아들이지 못하므로 nullable로 추가하거나 DEFAULT·백필을 넣는다.
+4. 기존 행이 NULL일 때의 응답을 정한다(예: `variantType` getter가 NULL → `UNKNOWN`). 행이 있는 테이블에 기본값 없는 `NOT NULL` 컬럼을 추가하면 **마이그레이션 SQL 자체가 실패**하므로 nullable로 추가하거나 DEFAULT·백필을 넣는다. prod `validate`는 테이블·컬럼 존재와 타입만 보고 NULL 허용 여부는 검사하지 않는다(엔티티 `nullable=false`와 DB가 어긋나도 통과).
 5. 응답 DTO·요청 DTO·[docs/DATA_MODEL.md](DATA_MODEL.md) 갱신.
 
 ### 콘텐츠 변경이 검색에 반영돼야 할 때
@@ -108,7 +108,7 @@ BASE=http://localhost:8081/api python3 scripts/smoke_auth.py   # BASE는 smoke_a
 
 1. `./gradlew build` (테스트 포함) → `build/libs/*.jar`.
 2. 환경변수 준비: [README.md](../README.md#production-environment-variables-prod-profile). `JWT_SECRET` 필수.
-3. **배포 전**: 아직 적용 안 된 `scripts/migrations/*.sql` 중 "배포 전" 스크립트를 날짜순으로 실행(`psql ... < 파일`). 모두 멱등하지만 적용 이력 테이블이 없으므로 어디까지 적용했는지는 운영자가 따로 기록해야 한다.
+3. **배포 전**: 아직 적용 안 된 `scripts/migrations/*.sql`을 날짜순으로 전부 실행(`psql ... < 파일`). 헤더에 **"배포 후"라고 적힌 스크립트만**(현재 `2026-10-14_drop_book_designer.sql`) 6단계로 미룬다. 라벨이 없는 스크립트(테이블·컬럼 추가)는 배포 전에 실행해야 하며, 빠뜨리면 `validate`에서 기동이 실패한다. 모두 멱등하지만 적용 이력 테이블이 없으므로 어디까지 적용했는지는 운영자가 따로 기록해야 한다.
 4. ES 신규 필드가 있으면 `_mapping` PUT.
 5. 앱 배포 (`SPRING_PROFILES_ACTIVE=prod`, `ddl-auto=validate` — 스키마가 엔티티와 안 맞으면 기동 실패).
 6. **배포 후**: "배포 후" 스크립트(컬럼 삭제 등), 필요 시 `POST /admin/search/reindex`.
