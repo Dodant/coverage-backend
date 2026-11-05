@@ -179,6 +179,7 @@ public class CatalogServiceImpl implements CatalogService {
         c.setRibbonStatus(r.ribbonStatus());
         c.setSourceName(clean(r.sourceName()));
         c.setSourceUrl(clean(r.sourceUrl()));
+        if (r.copyrightHolder() != null) c.setCopyrightHolder(r.copyrightHolder());
         if (r.credits() != null) {
             Set<String> keys = new HashSet<>();
             List<CoverCredit> wanted = new ArrayList<>();
@@ -210,6 +211,7 @@ public class CatalogServiceImpl implements CatalogService {
         values.put("printingFrom", c.getPrintingFrom()); values.put("usedFrom", c.getUsedFrom());
         values.put("variantType", c.getVariantType()); values.put("ribbonStatus", c.getRibbonStatus());
         values.put("sourceName", c.getSourceName()); values.put("sourceUrl", c.getSourceUrl());
+        values.put("copyrightHolder", c.getCopyrightHolder());
         values.put("credits", c.getCredits().stream().map(credit -> Map.of("designerId", credit.getDesigner().getId(), "name", credit.getDesigner().getName(), "role", credit.getRole())).toList());
         try { return mapper.writeValueAsString(values); }
         catch (JsonProcessingException e) { throw new IllegalStateException("표지 변경 이력을 만들 수 없습니다", e); }

@@ -56,5 +56,8 @@ public record AddCoverRequest(
     List<@Valid CreditInfo> credits,
 
     com.bookcover.archive.domain.book.CoverVariantType variantType,
-    com.bookcover.archive.domain.book.RibbonStatus ribbonStatus
+    com.bookcover.archive.domain.book.RibbonStatus ribbonStatus,
+
+    @Size(max = 500, message = "표지 저작권자는 500자 이하여야 합니다")
+    String copyrightHolder
 ) {}

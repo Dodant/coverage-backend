@@ -43,7 +43,8 @@ public record BookCoverResponse(
     /** 비슷한 표지 묶음 ID (같은 값이면 언어가 달라도 디자인이 비슷한 표지) */
     UUID similarGroupId,
     com.bookcover.archive.domain.book.CoverVariantType variantType,
-    com.bookcover.archive.domain.book.RibbonStatus ribbonStatus
+    com.bookcover.archive.domain.book.RibbonStatus ribbonStatus,
+    String copyrightHolder
 ) {
     /** 표지 크레딧 (designerId는 /designers/{id} 프로필로 연결) */
     public record CreditResponse(UUID designerId, String name, CreditRole role) {}
@@ -81,7 +82,8 @@ public record BookCoverResponse(
             cover.getTags().stream().filter(t -> Boolean.TRUE.equals(t.getApproved())).map(TagResponse::from).toList(),
             cover.getSimilarGroupId(),
             cover.getVariantType(),
-            cover.getRibbonStatus()
+            cover.getRibbonStatus(),
+            cover.getCopyrightHolder()
         );
     }
 }

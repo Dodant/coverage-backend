@@ -105,6 +105,10 @@ public record CreateOriginalBookRequest(
         String sourceName,
 
         /** 역할별 크레딧 */
-        List<CreditInfo> credits
+        List<CreditInfo> credits,
+
+        /** 표지 저작권자. 수정 시 null/생략이면 유지, 빈 문자열이면 비운다. */
+        @Size(max = 500, message = "표지 저작권자는 500자 이하여야 합니다")
+        String copyrightHolder
     ) {}
 }
